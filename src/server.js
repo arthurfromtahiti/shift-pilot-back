@@ -25,7 +25,8 @@ const server = http.createServer((req, res) => {
     return sendJson(res, 200, result);
   }
 
-  if (req.method === "GET" && url.pathname.startsWith("/orders/")) {
+  const orderByIdMatch = /^\/orders\/[^/]+$/.exec(url.pathname);
+  if (req.method === "GET" && orderByIdMatch) {
     const id = parseInt(url.pathname.slice("/orders/".length), 10);
     const order = getOrderById(id);
     if (order) return sendJson(res, 200, order);
