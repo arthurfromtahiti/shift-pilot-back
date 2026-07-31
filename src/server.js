@@ -1,7 +1,7 @@
 const http = require("node:http");
 const { URL } = require("node:url");
 const { listUsers, getUserById } = require("./routes/users");
-const { listOrders, getOrdersByUser, filterActiveOrders } = require("./routes/orders");
+const { listOrders, getOrdersByUser, filterActiveOrders, getOrderById } = require("./routes/orders");
 
 function sendJson(res, status, body) {
   res.writeHead(status, { "Content-Type": "application/json" });
@@ -23,6 +23,13 @@ const server = http.createServer((req, res) => {
     if (activeOnly) result = filterActiveOrders(result);
 
     return sendJson(res, 200, result);
+  }
+
+  if (req.method === "GET" && url.pathname.startsWith("/orders/")) {
+    const id = parseInt(url.pathname.slice("/orders/".length), 10);
+    const order = getOrderById(id);
+    if (order) return sendJson(res, 200, order);
+    return sendJson(res, 404, { error: "Not found" });
   }
 
   sendJson(res, 404, { error: "Not found" });
