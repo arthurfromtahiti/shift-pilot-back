@@ -1,0 +1,13 @@
+{
+  "name": "shift-pilot-back",
+  "version": "1.0.0",
+  "description": "Pilote de test SHIFT/Paperclip — API jouet (utilisateurs + commandes).",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}
