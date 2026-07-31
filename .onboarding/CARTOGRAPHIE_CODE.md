@@ -95,11 +95,12 @@ shift-pilot-back/
 | Élément | Type | Ligne(s) | Détail |
 |---------|------|----------|--------|
 | `sendJson(res, code, data)` | Function | 6-9 | Écrit en-têtes + sérialise JSON. Code réutilisable. |
-| Dispatcher | if-else block | 11-29 | Parse `req.url`, teste méthode+chemin, délègue ou retourne 404. |
+| Dispatcher | if-else block | 11-36 | Parse `req.url`, teste méthode+chemin, délègue ou retourne 404. |
 | `new URL(req.url, ...)` | URL parsing | 12 | Parse relative à une base vide — fonctionne pour chemin + query string. |
 | Routes GET /users | if-block | 14-16 | Branchement `→ listUsers()`. |
 | Routes GET /orders | if-block | 18-26 | Branchement + orchestration filtres (userId, activeOnly). **Ici que la logique métier est composée.** |
-| Fallback 404 | if-block | 28 | Tout ce qui ne match pas → 404 + `{error: "Not found"}`. |
+| Routes GET /orders/:id | if-block | 28-33 | Match exact via regex `/^\/orders\/[^/]+$/`. Lookup par id entier → 200+JSON ou 404. |
+| Fallback 404 | if-block | 35 | Tout ce qui ne match pas → 404 + `{error: "Not found"}`. |
 | `require.main === module` | Conditional | 32-36 | Démarre le serveur uniquement si invoqué directement (pas si importé en test). |
 | `module.exports = server` | Export | 38 | Permet d'importer le serveur en test et de le décorer (ex. faire des requêtes HTTP). |
 
@@ -116,7 +117,8 @@ shift-pilot-back/
 |---------|--------|------|---------|---|
 | GET | `/users` | server.js:14-16 | utilisateurs | Retourne annuaire complet (200 + JSON) |
 | GET | `/orders` | server.js:18-26 | commandes | Retourne commandes, filtres optionnels userId/active |
-| (any) | (autre) | server.js:28 | — | 404 + `{error: "Not found"}` |
+| GET | `/orders/:id` | server.js:28-33 | commandes | Retourne la commande par ID (200+JSON) ou 404. Match exact (pas de sous-chemins). |
+| (any) | (autre) | server.js:35 | — | 404 + `{error: "Not found"}` |
 
 ### Exports du système (pour test/import)
 
@@ -128,7 +130,8 @@ shift-pilot-back/
 | `listOrders()` | orders.js:10-12 | Utilisé via GET /orders sans filtre. Importé : server.js:4. |
 | `getOrdersByUser(id)` | orders.js:14-16 | Utilisé par GET /orders?userId=. Importé : server.js:4. |
 | `filterActiveOrders(orders)` | orders.js:22-24 | Utilisé par GET /orders?active=true (défaillant). Importé : server.js:4. |
-| `server` (http.Server) | server.js:38 | Exporté pour import en test. **Aucun test de server lui-même.** |
+| `getOrderById(id)` | orders.js:26-28 | Utilisé par GET /orders/:id. Lookup par `===` sur id entier. Importé : server.js:4. |
+| `server` (http.Server) | server.js:45 | Exporté pour import en test. |
 
 ## Fichiers critiques (hotspots d'évolution)
 

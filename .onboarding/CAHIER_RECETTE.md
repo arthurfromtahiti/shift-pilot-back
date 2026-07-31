@@ -507,6 +507,79 @@ Body : 1 commande payée de Teiki (101)
 
 ---
 
+## Scenario 8 — Récupérer une commande par identifiant (GET /orders/:id)
+
+**Classification** : nominal + cas d'erreur, route ajoutée par CLA-30
+
+**Objectif** : un client récupère une commande précise par son ID entier
+
+**Préconditions**
+- Serveur démarré
+- Aucun paramètre de requête (l'ID est dans le chemin)
+
+### Variante 8a — ID existant (commande trouvée)
+
+**Requête**
+```
+GET /orders/101 HTTP/1.1
+Host: localhost:3000
+```
+
+**Réponse attendue**
+
+Status : **200 OK**
+
+Body (JSON) :
+```json
+{ "id": 101, "userId": 2, "total": 4200, "status": "paid" }
+```
+
+**Points de contrôle**
+- ✅ Statut 200
+- ✅ Objet JSON unique (pas un tableau)
+- ✅ Champs `id`, `userId`, `total`, `status` présents et cohérents avec les données
+
+### Variante 8b — ID inexistant (commande absente)
+
+**Requête**
+```
+GET /orders/999 HTTP/1.1
+```
+
+**Réponse attendue**
+
+Status : **404 Not Found**
+
+Body : `{ "error": "Not found" }`
+
+**Points de contrôle**
+- ✅ Statut 404
+- ✅ Corps d'erreur `{ "error": "Not found" }`
+
+### Variante 8c — Chemin avec segment supplémentaire (hors spec)
+
+**Requête**
+```
+GET /orders/101/extra HTTP/1.1
+```
+
+**Réponse attendue**
+
+Status : **404 Not Found**
+
+Body : `{ "error": "Not found" }`
+
+**Points de contrôle**
+- ✅ Statut 404 (la route ne matche que `/orders/<id>` exact — pas de sous-chemins)
+- ✅ Le segment extra n'est pas interprété comme un ID
+
+**Preuve du code**
+- `src/server.js:28-33` : match via `/^\/orders\/[^/]+$/` (segment unique obligatoire)
+- `src/routes/orders.js:26-28` : `getOrderById(id)` — lookup strict `===`
+- `test/orders.test.js:24-34,36-39` : variantes 8a, 8b et 8c couvertes
+
+---
+
 ## Résumé de couverture
 
 | Scenario | Chemin de code | Statut |
@@ -515,9 +588,10 @@ Body : 1 commande payée de Teiki (101)
 | 2. Lister commandes | src/server.js:18-26, src/routes/orders.js:10-12 | ✅ Fonctionnel |
 | 3. Filtrer par userId | src/server.js:22, src/routes/orders.js:14-16 | ✅ Fonctionnel |
 | 4. Filtrer par active=true | src/server.js:23, src/routes/orders.js:22-24 | ❌ Bugué (volontaire) |
-| 5. Routes invalides | src/server.js:28 | ✅ Fonctionnel |
+| 5. Routes invalides | src/server.js:35 | ✅ Fonctionnel |
 | 6. Composition userId+active | src/server.js:22-23 | ❌ Partiellement bugué |
 | 7. Données statiques | src/routes/*.js:3-8 | ✅ Vérifiable |
+| 8. Récupérer commande par ID | src/server.js:28-33, src/routes/orders.js:26-28 | ✅ Fonctionnel |
 
 ## Instructions de recette — à la main ou automatisé
 
