@@ -33,6 +33,11 @@ test("GET /orders/999 returns 404 with error message", async () => {
   assert.deepEqual(body, { error: "Not found" });
 });
 
+test("GET /orders/101/extra returns 404 (extra segment must not match)", async () => {
+  const { status } = await request("/orders/101/extra");
+  assert.equal(status, 404);
+});
+
 test("filterActiveOrders excludes cancelled orders", () => {
   const sample = [
     { id: 1, status: "paid" },
