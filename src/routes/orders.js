@@ -15,12 +15,8 @@ function getOrdersByUser(userId) {
   return orders.filter((order) => order.userId === userId);
 }
 
-// Doit exclure les commandes annulées. Bug volontaire : compare à "canceled"
-// (orthographe américaine) alors que les données utilisent "cancelled" — la
-// fonction ne filtre donc jamais rien, elle retourne toujours toutes les
-// commandes, y compris les annulées.
 function filterActiveOrders(orderList) {
-  return orderList.filter((order) => order.status !== "canceled");
+  return orderList.filter((order) => order.status !== "cancelled");
 }
 
 module.exports = { listOrders, getOrdersByUser, filterActiveOrders };
