@@ -1,7 +1,7 @@
 const http = require("node:http");
 const { URL } = require("node:url");
 const { listUsers, getUserById } = require("./routes/users");
-const { listOrders, getOrdersByUser, filterActiveOrders } = require("./routes/orders");
+const { listOrders, getOrdersByUser, filterActiveOrders, filterByStatus } = require("./routes/orders");
 
 function sendJson(res, status, body) {
   res.writeHead(status, { "Content-Type": "application/json" });
@@ -18,9 +18,11 @@ const server = http.createServer((req, res) => {
   if (url.pathname === "/orders" && req.method === "GET") {
     const userIdParam = url.searchParams.get("userId");
     const activeOnly = url.searchParams.get("active") === "true";
+    const statusParam = url.searchParams.get("status");
 
     let result = userIdParam ? getOrdersByUser(Number(userIdParam)) : listOrders();
     if (activeOnly) result = filterActiveOrders(result);
+    if (statusParam !== null) result = filterByStatus(result, statusParam);
 
     return sendJson(res, 200, result);
   }
