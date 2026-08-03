@@ -20,9 +20,13 @@ const server = http.createServer((req, res) => {
     const activeOnly = url.searchParams.get("active") === "true";
     const statusParam = url.searchParams.get("status");
 
+    // "canceled" (American, 1 l) is an alias for the canonical "cancelled" stored in data
+    const normalizedStatus = statusParam === "canceled" ? "cancelled" : statusParam;
+
     let result = userIdParam ? getOrdersByUser(Number(userIdParam)) : listOrders();
-    if (activeOnly) result = filterActiveOrders(result);
-    if (statusParam !== null) result = filterByStatus(result, statusParam);
+    // explicit status wins over active-only: the two filters are semantically contradictory
+    if (activeOnly && normalizedStatus === null) result = filterActiveOrders(result);
+    if (normalizedStatus !== null) result = filterByStatus(result, normalizedStatus);
 
     return sendJson(res, 200, result);
   }
