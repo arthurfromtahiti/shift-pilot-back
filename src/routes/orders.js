@@ -21,4 +21,8 @@ function filterActiveOrders(orderList) {
   return orderList.filter((order) => order.status !== "cancelled");
 }
 
-module.exports = { listOrders, getOrdersByUser, filterActiveOrders };
+function filterByStatus(orderList, status) {
+  return orderList.filter((order) => order.status === status);
+}
+
+module.exports = { listOrders, getOrdersByUser, filterActiveOrders, filterByStatus };
