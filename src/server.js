@@ -1,6 +1,6 @@
 const http = require("node:http");
 const { URL } = require("node:url");
-const { listUsers, getUserById } = require("./routes/users");
+const { listUsers } = require("./routes/users");
 const { listOrders, getOrdersByUser, filterActiveOrders } = require("./routes/orders");
 
 function sendJson(res, status, body) {
