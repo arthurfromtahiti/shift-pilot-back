@@ -66,6 +66,33 @@ test("GET /orders?status=unknown returns empty list, not an error", async () => 
   assert.deepEqual(result, [], "unknown status must return empty array");
 });
 
+// CLA-114 — Bug 1: American spelling "canceled" must match British "cancelled" in data
+test("GET /orders?status=canceled (one l) returns same orders as ?status=cancelled", async () => {
+  const onEl = await get("/orders?status=canceled");
+  const twoEl = await get("/orders?status=cancelled");
+  assert.ok(onEl.length > 0, "canceled (one l) must return at least one order");
+  assert.deepEqual(
+    onEl.map((o) => o.id).sort(),
+    twoEl.map((o) => o.id).sort(),
+    "?status=canceled must return the same orders as ?status=cancelled",
+  );
+});
+
+// CLA-114 — Bug 2: explicit status param must take precedence over active=true filter
+test("GET /orders?active=true&status=cancelled returns cancelled orders (status wins)", async () => {
+  const result = await get("/orders?active=true&status=cancelled");
+  assert.ok(result.length > 0, "should return at least one cancelled order despite active=true");
+  assert.ok(
+    result.every((o) => o.status === "cancelled"),
+    "all returned orders must have status=cancelled",
+  );
+  assert.deepEqual(
+    result.map((o) => o.id).sort(),
+    [102, 104],
+    "must return orders 102 and 104",
+  );
+});
+
 test("filterByStatus filters orders by exact status match", () => {
   const sample = [
     { id: 1, status: "paid" },
