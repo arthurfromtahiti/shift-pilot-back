@@ -8,9 +8,7 @@
     "start": "node src/server.js",
     "test": "node --test test/*.test.js"
   },
-  "dependencies": {
-    "lodash": "^4.17.15"
-  },
+  "dependencies": {},
   "license": "UNLICENSED",
   "private": true
 }
