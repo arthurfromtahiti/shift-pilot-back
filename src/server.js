@@ -1,7 +1,8 @@
 const http = require("node:http");
 const { URL } = require("node:url");
-const { listUsers } = require("./routes/users");
-const { listOrders, getOrdersByUser, filterActiveOrders } = require("./routes/orders");
+
+const { listUsers, getUserById } = require("./routes/users");
+const { listOrders, getOrdersByUser, filterActiveOrders, getOrderById } = require("./routes/orders");
 
 function sendJson(res, status, body) {
   res.writeHead(status, { "Content-Type": "application/json" });
@@ -22,7 +23,15 @@ const server = http.createServer((req, res) => {
     let result = userIdParam ? getOrdersByUser(Number(userIdParam)) : listOrders();
     if (activeOnly) result = filterActiveOrders(result);
 
-    return sendJson(res, 200, result);
+    return sendJson(res, 200, result.map(o => ({ ...o, totalXpf: Math.round(o.total / 100) })));
+  }
+
+  const orderByIdMatch = /^\/orders\/[^/]+$/.exec(url.pathname);
+  if (req.method === "GET" && orderByIdMatch) {
+    const id = parseInt(url.pathname.slice("/orders/".length), 10);
+    const order = getOrderById(id);
+    if (order) return sendJson(res, 200, order);
+    return sendJson(res, 404, { error: "Not found" });
   }
 
   sendJson(res, 404, { error: "Not found" });
