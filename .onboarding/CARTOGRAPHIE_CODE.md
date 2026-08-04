@@ -157,17 +157,20 @@ shift-pilot-back/
 - Correction du bug `filterActiveOrders` → changer `"canceled"` en `"cancelled"`
 - Ajout d'un filtre par statut supplémentaire → nouvelle fonction + branchement dans server.js
 
-### 3. `src/routes/users.js:3,17-19` (hotspot secondaire — imports partially used)
+### 3. `src/routes/users.js:17-19` (hotspot secondaire — export mort)
 
 **Criticité** : faible. Décision produit requise.
 
-**État actuel** : `getUserById` est maintenant **utilisée** (CLA-187) : wiring de GET /users/:id (server.js:20-25) et enrichissement clientName sur GET /orders (server.js:40-42). `isAdmin` reste un export mort.
+**État actuel** : `getUserById` est maintenant **utilisée doublement** (CLA-187) : câblée pour GET /users/:id (server.js:22) et pour l'enrichissement `clientName` sur GET /orders (server.js:40-42). `isAdmin` reste un export mort.
+
+**Changements apportés**
+- (a) ✅ Câbler route `GET /users/:id` (utiliser `getUserById`) — FAIT en CLA-187
+- (b) ✅ Câbler enrichissement clientName sur GET /orders — FAIT en CLA-187
 
 **Options restantes**
-- (a) ✅ Câbler route `GET /users/:id` (utiliser `getUserById`) — FAIT en CLA-187
-- (b) Retirer ou consolider les imports inutilisés (seul `isAdmin` reste mort)
-- (c) Câbler contrôle d'accès (utiliser `isAdmin`)
-- (d) Retirer `isAdmin` exporté
+- (c) Retirer ou consolider les imports inutilisés (seul `isAdmin` reste mort)
+- (d) Câbler contrôle d'accès (utiliser `isAdmin`)
+- (e) Retirer `isAdmin` exporté
 
 ## Zones de faible confiance
 
