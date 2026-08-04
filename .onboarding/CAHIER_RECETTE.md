@@ -108,29 +108,25 @@ Body (JSON) :
     "id": 101,
     "userId": 2,
     "total": 4200,
-    "status": "paid",
-    "totalXpf": 42
+    "status": "paid"
   },
   {
     "id": 102,
     "userId": 2,
     "total": 1800,
-    "status": "cancelled",
-    "totalXpf": 18
+    "status": "cancelled"
   },
   {
     "id": 103,
     "userId": 3,
     "total": 9600,
-    "status": "paid",
-    "totalXpf": 96
+    "status": "paid"
   },
   {
     "id": 104,
     "userId": 3,
     "total": 3000,
-    "status": "cancelled",
-    "totalXpf": 30
+    "status": "cancelled"
   }
 ]
 ```
@@ -141,7 +137,6 @@ Body (JSON) :
 - ✅ Deux commandes ont `status: "paid"`, deux ont `status: "cancelled"`
 - ✅ `userId` lie à utilisateurs existants (2=Teiki, 3=Manoa)
 - ✅ Commandes annulées présentes dans le résultat (pas filtré)
-- ✅ Chaque commande enrichie avec `totalXpf: Math.round(total / 100)` (42, 18, 96, 30)
 
 **Cas limite à tester**
 - ✅ Requête `GET /orders?unknown=param` → même résultat 4 commandes
@@ -180,15 +175,13 @@ Body (JSON) :
     "id": 101,
     "userId": 2,
     "total": 4200,
-    "status": "paid",
-    "totalXpf": 42
+    "status": "paid"
   },
   {
     "id": 102,
     "userId": 2,
     "total": 1800,
-    "status": "cancelled",
-    "totalXpf": 18
+    "status": "cancelled"
   }
 ]
 ```
@@ -197,7 +190,6 @@ Body (JSON) :
 - ✅ Statut 200
 - ✅ Array JSON de 2 objets (uniquement userId=2)
 - ✅ Les deux commandes de Teiki retournées
-- ✅ Chaque commande enrichie avec `totalXpf` (42, 18)
 
 ### Variante 3b — userId=3 (Manoa, 2 commandes)
 
@@ -291,18 +283,18 @@ Status : **200 OK**
 **Body attendu (si le filtre fonctionnait)** : 2 commandes payées uniquement
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 },
-  { "id": 103, "userId": 3, "total": 9600, "status": "paid", "totalXpf": 96 }
+  { "id": 101, "userId": 2, "total": 4200, "status": "paid" },
+  { "id": 103, "userId": 3, "total": 9600, "status": "paid" }
 ]
 ```
 
 **Body réellement reçu (BUG OBSERVABLE)** : **4 commandes incluant les annulées**
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 },
-  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "totalXpf": 18 },
-  { "id": 103, "userId": 3, "total": 9600, "status": "paid", "totalXpf": 96 },
-  { "id": 104, "userId": 3, "total": 3000, "status": "cancelled", "totalXpf": 30 }
+  { "id": 101, "userId": 2, "total": 4200, "status": "paid" },
+  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled" },
+  { "id": 103, "userId": 3, "total": 9600, "status": "paid" },
+  { "id": 104, "userId": 3, "total": 3000, "status": "cancelled" }
 ]
 ```
 
@@ -324,15 +316,15 @@ Status : **200 OK**
 **Body attendu (si le filtre fonctionnait)** : 1 commande payée de Teiki
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 }
+  { "id": 101, "userId": 2, "total": 4200, "status": "paid" }
 ]
 ```
 
 **Body réellement reçu (BUG OBSERVABLE)** : **2 commandes incluant l'annulée**
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 },
-  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "totalXpf": 18 }
+  { "id": 101, "userId": 2, "total": 4200, "status": "paid" },
+  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled" }
 ]
 ```
 
@@ -340,7 +332,6 @@ Status : **200 OK**
 - ✅ Filtre `userId` appliqué correctement en premier → [101, 102]
 - ❌ Filtre `active=true` **NE filtre rien** — commande 102 (annulée) **PASSE À TRAVERS**
 - ❌ Le bug orthographique s'applique : `"cancelled" !== "canceled"` → true, l'objet passe
-- ✅ Chaque commande enrichie avec `totalXpf` (42, 18)
 
 ### Variante 4c — active=false (paramètre ignoré)
 

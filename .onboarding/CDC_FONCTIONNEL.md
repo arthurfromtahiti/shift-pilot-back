@@ -80,10 +80,10 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 **Résultat** : 4 commandes (toutes, incluses les annulées)
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 },
-  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "totalXpf": 18 },
-  { "id": 103, "userId": 3, "total": 9600, "status": "paid", "totalXpf": 96 },
-  { "id": 104, "userId": 3, "total": 3000, "status": "cancelled", "totalXpf": 30 }
+  { "id": 101, "userId": 2, "total": 4200, "status": "paid" },
+  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled" },
+  { "id": 103, "userId": 3, "total": 9600, "status": "paid" },
+  { "id": 104, "userId": 3, "total": 3000, "status": "cancelled" }
 ]
 ```
 
@@ -102,8 +102,8 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 **Résultat** : commandes de l'utilisateur 2 (y compris annulée)
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 },
-  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "totalXpf": 18 }
+  { "id": 101, "userId": 2, "total": 4200, "status": "paid" },
+  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled" }
 ]
 ```
 
@@ -124,8 +124,8 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 **Ce qui est reçu** : **les deux commandes incluant l'annulée** — **comportement incorrect**. Le bug n'a pas été corrigé.
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 },
-  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "totalXpf": 18 }
+  { "id": 101, "userId": 2, "total": 4200, "status": "paid" },
+  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled" }
 ]
 ```
 
@@ -142,10 +142,10 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 **Résultat reçu** : **4 commandes (y compris les annulées)** — **COMPORTEMENT INCORRECT** car `filterActiveOrders()` compare `order.status !== "canceled"` (orthographe US) alors que les données portent `"cancelled"` (orthographe GB). Aucune commande n'est exclue. Bug volontaire du pilote.
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 },
-  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "totalXpf": 18 },
-  { "id": 103, "userId": 3, "total": 9600, "status": "paid", "totalXpf": 96 },
-  { "id": 104, "userId": 3, "total": 3000, "status": "cancelled", "totalXpf": 30 }
+  { "id": 101, "userId": 2, "total": 4200, "status": "paid" },
+  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled" },
+  { "id": 103, "userId": 3, "total": 9600, "status": "paid" },
+  { "id": 104, "userId": 3, "total": 3000, "status": "cancelled" }
 ]
 ```
 
@@ -207,7 +207,6 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 
 **Intégrité `userId`** : cohérence vérifiée manuellement. IDs 2 et 3 correspondent à des utilisateurs existants. Aucune FK enforced.
 
-**Enrichissement à la sérialisation** : chaque objet commande retourné par `GET /orders` (tous paramètres) est enrichi avec `totalXpf: Math.round(total / 100)` au moment de `sendJson()` dans `src/server.js:25`. Valeurs pour les données de démo : id 101 → 42, id 102 → 18, id 103 → 96, id 104 → 30. Le champ n'est pas stocké dans `src/routes/orders.js`.
 
 ## Délimitations honnêtes
 
