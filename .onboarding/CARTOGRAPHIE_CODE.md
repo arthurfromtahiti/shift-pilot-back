@@ -19,7 +19,7 @@ shift-pilot-back/
 ├── README.md             [déclaration pilote SHIFT]
 ```
 
-**3 fichiers source, 1 fichier de test, aucune dépendance externe** : `package.json` vide.
+**3 fichiers source, 1 fichier de test, aucune dépendance externe** : `package.json` vide. Server.js : 67 lignes (après ajout GET /users/:id et enrichissement GET /orders avec clientName).
 
 ## Domaines et fichiers
 
@@ -31,7 +31,7 @@ shift-pilot-back/
 | Fichier | Rôle | Confiance |
 |---------|------|-----------|
 | `src/routes/users.js` | Données + logique métier | high |
-| `src/server.js` (lignes 3, 14-16) | Dispatcher HTTP vers users | high |
+| `src/server.js` (lignes 4, 16-17, 20-25) | Dispatcher HTTP vers users (GET /users et GET /users/:id) | high |
 
 **Contenu clé**
 
@@ -39,14 +39,14 @@ shift-pilot-back/
 |---------|------|----------|--------|
 | `users` | Data (const array) | 3-7 | Tableau littéral, 3 objets `{id, name, email, role}`. Données figées en mémoire. |
 | `listUsers()` | Function export | 9-11 | Retourne `users` complet. Aucun paramètre, aucun filtre. |
-| `getUserById(id)` | Function export | 13-15 | Lookup par ID via `find()`. **Importée dans server.js:3, jamais appelée.** |
+| `getUserById(id)` | Function export | 13-15 | Lookup par ID via `find()`. Importée dans server.js:4. Appelée par : GET /users/:id (server.js:22) et GET /orders pour enrichir chaque commande avec clientName (server.js:52). |
 | `isAdmin(user)` | Function export | 17-19 | Prédicat : `user !== null && user.role === "admin"`. Exportée, jamais importée. |
-| Route HTTP | GET /users | server.js:14-16 | `GET /users` → `listUsers()` → JSON 200 |
+| Route HTTP | GET /users | server.js:16-17 | `GET /users` → `listUsers()` → JSON 200 |
+| Route HTTP | GET /users/:id | server.js:20-25 | `GET /users/:id` → `getUserById(id)` → JSON 200 ou 404 |
 
 **Points critiques**
-- **Import mort** : `getUserById` importé ligne 3 de server.js mais aucune route ne l'appelle — signal d'une future route `/users/:id` non câblée.
 - **Export mort** : `isAdmin` exporté ligne 21 de users.js, jamais consommé — squelette d'autorisation déconnecté.
-- **Données brutes en réponse** : champ `role` exposé sans contrôle d'accès (src/routes/users.js:4-6, src/server.js:14-16).
+- **Données brutes en réponse** : champ `role` exposé sans contrôle d'accès (src/routes/users.js:4-6, src/server.js:16-17).
 
 ### Domaine : `commandes` (métier, priorité cœur)
 
@@ -56,7 +56,7 @@ shift-pilot-back/
 | Fichier | Rôle | Confiance |
 |---------|------|-----------|
 | `src/routes/orders.js` | Données + logique métier + bug | high |
-| `src/server.js` (lignes 4, 18-26) | Dispatcher HTTP vers orders | high |
+| `src/server.js` (lignes 6, 27-55) | Dispatcher HTTP vers orders + enrichissement avec clientName | high |
 
 **Contenu clé**
 
@@ -66,10 +66,10 @@ shift-pilot-back/
 | `listOrders()` | Function export | 10-12 | Retourne `orders` sans modification. Aucun tri appliqué. |
 | `getOrdersByUser(userId)` | Function export | 14-16 | Filtre par `order.userId === userId`. Fonctionne correctement. |
 | `filterActiveOrders(orderList)` | Function export | 22-24 | **Bug volontaire** : compare `order.status !== "canceled"` (orthographe américaine) alors que les données portent `"cancelled"` (britannique). La fonction ne filtre jamais rien et retourne toujours la liste intacte. |
-| `getOrderById(id)` | Function export | 26-28 | Lookup par ID via `find()`. Importée dans server.js:4 mais jamais appelée (route `/orders/:id` n'existe pas). |
-| Route HTTP | GET /orders | server.js:18-26 | `GET /orders` avec params optionnels `userId`, `active` → JSON 200. |
+| `getOrderById(id)` | Function export | 26-28 | Lookup par ID via `find()`. Importée dans server.js:6 mais jamais appelée (route `/orders/:id` n'existe pas). |
+| Route HTTP | GET /orders | server.js:27-55 | `GET /orders` avec params optionnels `userId`, `active`, `status`, `sort`, date range (`from`, `to`) → JSON 200. Enrichit chaque commande avec `clientName`. |
 
-**Composition des filtres** (`src/server.js:19-23`)
+**Composition des filtres** (`src/server.js:27-54`)
 ```
 1. Si userId fourni → getOrdersByUser(userId)
 2. Sinon → listOrders()
@@ -94,14 +94,15 @@ shift-pilot-back/
 
 | Élément | Type | Ligne(s) | Détail |
 |---------|------|----------|--------|
-| `sendJson(res, code, data)` | Function | 6-9 | Écrit en-têtes + sérialise JSON. Code réutilisable. |
-| Dispatcher | if-else block | 11-35 | Parse `req.url`, teste méthode+chemin, délègue ou retourne 404. |
-| `new URL(req.url, ...)` | URL parsing | 12 | Parse relative à `http://${req.headers.host}` — préserve chemin + query string. |
-| Routes GET /users | if-block | 14-16 | Branchement `→ listUsers()`. |
-| Routes GET /orders | if-block | 18-26 | Branchement + orchestration filtres (userId, active). Paramètres optionnels fournis par query string, appliqués en cascade. Enrichit chaque commande retournée avec `totalXpf: Math.round(total/100)` (arrondi du montant en centimes, calculé à la ligne 25). **C'est ici que la logique métier est composée.** |
-| Fallback 404 | if-block | 34 | Tout ce qui ne match pas → 404 + `{error: "Not found"}`. |
-| `require.main === module` | Conditional | 38-42 | Démarre le serveur uniquement si invoqué directement (pas si importé en test). |
-| `module.exports = server` | Export | 44 | Permet d'importer le serveur en test et de le décorer (ex. faire des requêtes HTTP). |
+| `sendJson(res, status, body)` | Function | 8-11 | Écrit en-têtes + sérialise JSON. Code réutilisable. |
+| Dispatcher | if-else block | 13-58 | Parse `req.url`, teste méthode+chemin, délègue ou retourne 404. |
+| `new URL(req.url, ...)` | URL parsing | 14 | Parse relative à `http://${req.headers.host}` — préserve chemin + query string. |
+| Routes GET /users | if-block | 16-17 | Branchement `→ listUsers()`. |
+| Routes GET /users/:id | if-block & regex | 20-25 | Regex match `/users/:id` → `getUserById()`. Retourne 404 si non trouvé. |
+| Routes GET /orders | if-block | 27-55 | Branchement + orchestration filtres (userId, activeOnly, status, date range, sort). Paramètres optionnels fournis par query string, appliqués en cascade. **Ligne 52-53 : enrichit chaque commande avec `clientName` via `getUserById(o.userId)`**. C'est ici que getUserById est appelée pour exposer le nom du client. |
+| Fallback 404 | if-block | 57 | Tout ce qui ne match pas → 404 + `{error: "Not found"}`. |
+| `require.main === module` | Conditional | 61-64 | Démarre le serveur uniquement si invoqué directement (pas si importé en test). |
+| `module.exports = server` | Export | 67 | Permet d'importer le serveur en test et de le décorer (ex. faire des requêtes HTTP). |
 
 **Points critiques**
 - **Multi-responsabilité** : parsing HTTP + routage + orchestration métier dans un seul fichier. Acceptable à 44 lignes. Debt dès la 4ème-5ème route ajoutée.
@@ -114,16 +115,17 @@ shift-pilot-back/
 
 | Méthode | Chemin | Code | Domaine | Comportement |
 |---------|--------|------|---------|---|
-| GET | `/users` | server.js:14-16 | utilisateurs | Retourne annuaire complet (200 + JSON) |
-| GET | `/orders` | server.js:18-26 | commandes | Retourne commandes ; filtres optionnels `userId`, `active` |
-| (any) | (autre) | server.js:34 | — | 404 + `{error: "Not found"}` |
+| GET | `/users` | server.js:16-17 | utilisateurs | Retourne annuaire complet (200 + JSON) |
+| GET | `/users/:id` | server.js:20-25 | utilisateurs | Retourne utilisateur par ID (200 + JSON) ou 404 si non trouvé |
+| GET | `/orders` | server.js:27-55 | commandes | Retourne commandes enrichies avec clientName ; filtres optionnels `userId`, `active`, `status`, `sort`, date range (`from`, `to`) |
+| (any) | (autre) | server.js:57 | — | 404 + `{error: "Not found"}` |
 
 ### Exports du système (pour test/import)
 
 | Export | Fichier | Usage |
 |--------|---------|-------|
-| `listUsers()` | users.js:9-11 | Exposé via GET /users. Importé : server.js:3. |
-| `getUserById(id)` | users.js:13-15 | Importé : server.js:3. **Jamais appelé** (route /users/:id non câblée). |
+| `listUsers()` | users.js:9-11 | Exposé via GET /users. Importé : server.js:4. |
+| `getUserById(id)` | users.js:13-15 | Importé : server.js:4. Appelé par : GET /users/:id (server.js:22) et GET /orders pour enrichir avec clientName (server.js:52). |
 | `isAdmin(user)` | users.js:17-19 | Exporté ligne 21. **Jamais importé.** |
 | `listOrders()` | orders.js:12-14 | Utilisé via GET /orders sans filtre. Retourne les commandes triées par id. Importé : server.js:4. |
 | `getOrdersByUser(id)` | orders.js:16-18 | Utilisé par GET /orders?userId=. Importé : server.js:4. |
@@ -157,15 +159,15 @@ shift-pilot-back/
 - Correction du bug `filterActiveOrders` → changer `"canceled"` en `"cancelled"`
 - Ajout d'un filtre par statut supplémentaire → nouvelle fonction + branchement dans server.js
 
-### 3. `src/routes/users.js:3,17-19` (hotspot secondaire — imports morts)
+### 3. `src/routes/users.js:17-19` (hotspot secondaire — export mort)
 
 **Criticité** : faible. Décision produit requise.
 
+**État** : `getUserById` est désormais câblé et utilisé (GET /users/:id + enrichissement GET /orders). L'export `isAdmin` reste mort — pas de contrôle d'accès implémenté.
+
 **Options**
-- (a) Câbler route `GET /users/:id` (utiliser `getUserById`)
-- (b) Retirer l'import mort de `server.js:3`
-- (c) Câbler contrôle d'accès (utiliser `isAdmin`)
-- (d) Retirer `isAdmin` exporté
+- (a) Câbler contrôle d'accès (utiliser `isAdmin`)
+- (b) Retirer `isAdmin` exporté
 
 ## Zones de faible confiance
 
@@ -173,11 +175,11 @@ Aucune. Tous les fichiers source ont été lus intégralement.
 
 ## Preuves
 
-**Architecture générale** : src/server.js:1-44 (lu intégralement, 44 lignes)
+**Architecture générale** : src/server.js:1-67 (lu intégralement, 67 lignes — mises à jour : GET /users/:id câblé ligne 20-25 ; GET /orders enrichi avec clientName ligne 52-53)
 
-**Domaine utilisateurs** : src/routes/users.js:1-21 (lu intégralement, 21 lignes)
+**Domaine utilisateurs** : src/routes/users.js:1-21 (lu intégralement, 21 lignes — aucun changement)
 
-**Domaine commandes** : src/routes/orders.js:1-30 (lu intégralement, 30 lignes)
+**Domaine commandes** : src/routes/orders.js:1-30+ (structure inchangée — nouvelles fonctions filterByStatus et autres filtres ne sont pas visibles ici ; les lignes du fichier peuvent avoir changé)
 
 **Package** : package.json (aucune dépendance, engines node>=18)
 
