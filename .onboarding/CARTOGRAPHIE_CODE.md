@@ -67,19 +67,17 @@ shift-pilot-back/
 | `listOrders()` | Function export | 12-14 | Retourne `_.sortBy(orders, "id")` — tri stable par id croissant. |
 | `getOrdersByUser(userId)` | Function export | 16-18 | Filtre par `order.userId === userId`. Fonctionne correctement. |
 | `filterActiveOrders(orderList)` | Function export | 20-22 | Exclut les commandes dont `status === "cancelled"`. Corrigé — fonctionne correctement. |
-| `filterByStatus(orderList, status)` | Function export | 24-26 | Filtre exact sur `order.status === status`. Nouveau filtre introduit par CLA-66. |
-| Route HTTP | GET /orders | server.js:18-32 | `GET /orders` avec params optionnels `userId`, `active`, `status` → JSON 200 |
+| Route HTTP | GET /orders | server.js:18-26 | `GET /orders` avec params optionnels `userId`, `active` → JSON 200 |
 
-**Composition des filtres** (`src/server.js:22-23`)
+**Composition des filtres** (`src/server.js:19-23`)
 ```
 1. Si userId fourni → getOrdersByUser(userId)
-2. Si activeOnly vrai → filterActiveOrders(result)
-3. Retourner result
+2. Sinon → listOrders()
+3. Si activeOnly vrai → filterActiveOrders(result)
+4. Retourner result
 ```
 
 **Points critiques**
-- **Alias orthographique** : le paramètre `?status=canceled` (1 l, anglais américain) est normalisé en `"cancelled"` côté serveur (`src/server.js:24`) — les deux orthographes acceptées en entrée.
-- **Priorité des filtres** : `?status=` prend la main sur `?active=true` si les deux sont fournis (`src/server.js:28-29`).
 - **Validation d'entrée absente** : `userId=abc` → `NaN` silencieux, pas d'erreur 400.
 
 ### Domaine : `api-http-routage` (technique, priorité support)
@@ -99,7 +97,7 @@ shift-pilot-back/
 | Dispatcher | if-else block | 11-35 | Parse `req.url`, teste méthode+chemin, délègue ou retourne 404. |
 | `new URL(req.url, ...)` | URL parsing | 12 | Parse relative à `http://${req.headers.host}` — préserve chemin + query string. |
 | Routes GET /users | if-block | 14-16 | Branchement `→ listUsers()`. |
-| Routes GET /orders | if-block | 18-26 | Branchement + orchestration filtres (userId, active, status). `status` prime sur `active`. Chaque objet commande est enrichi avec `totalXpf: Math.round(total/100)` (calculé ligne 25). **C'est ici que la logique métier est composée.** |
+| Routes GET /orders | if-block | 18-26 | Branchement + orchestration filtres (userId, active). Paramètres optionnels fournis par query string, appliqués en cascade. **C'est ici que la logique métier est composée.** |
 | Fallback 404 | if-block | 34 | Tout ce qui ne match pas → 404 + `{error: "Not found"}`. |
 | `require.main === module` | Conditional | 38-42 | Démarre le serveur uniquement si invoqué directement (pas si importé en test). |
 | `module.exports = server` | Export | 44 | Permet d'importer le serveur en test et de le décorer (ex. faire des requêtes HTTP). |
@@ -116,7 +114,7 @@ shift-pilot-back/
 | Méthode | Chemin | Code | Domaine | Comportement |
 |---------|--------|------|---------|---|
 | GET | `/users` | server.js:14-16 | utilisateurs | Retourne annuaire complet (200 + JSON) |
-| GET | `/orders` | server.js:18-32 | commandes | Retourne commandes ; filtres optionnels `userId`, `active`, `status` (`status` prime sur `active`) |
+| GET | `/orders` | server.js:18-26 | commandes | Retourne commandes ; filtres optionnels `userId`, `active` |
 | (any) | (autre) | server.js:34 | — | 404 + `{error: "Not found"}` |
 
 ### Exports du système (pour test/import)
@@ -129,7 +127,6 @@ shift-pilot-back/
 | `listOrders()` | orders.js:12-14 | Utilisé via GET /orders sans filtre. Retourne les commandes triées par id. Importé : server.js:4. |
 | `getOrdersByUser(id)` | orders.js:16-18 | Utilisé par GET /orders?userId=. Importé : server.js:4. |
 | `filterActiveOrders(orderList)` | orders.js:20-22 | Utilisé par GET /orders?active=true. Exclut les commandes `"cancelled"`. Importé : server.js:4. |
-| `filterByStatus(orderList, status)` | orders.js:24-26 | Utilisé par GET /orders?status=. Filtre exact par statut. Importé : server.js:4. |
 | `server` (http.Server) | server.js:44 | Exporté pour import en test. |
 
 ## Fichiers critiques (hotspots d'évolution)

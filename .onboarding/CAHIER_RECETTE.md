@@ -108,29 +108,25 @@ Body (JSON) :
     "id": 101,
     "userId": 2,
     "total": 4200,
-    "status": "paid",
-    "totalXpf": 42
+    "status": "paid"
   },
   {
     "id": 102,
     "userId": 2,
     "total": 1800,
-    "status": "cancelled",
-    "totalXpf": 18
+    "status": "cancelled"
   },
   {
     "id": 103,
     "userId": 3,
     "total": 9600,
-    "status": "paid",
-    "totalXpf": 96
+    "status": "paid"
   },
   {
     "id": 104,
     "userId": 3,
     "total": 3000,
-    "status": "cancelled",
-    "totalXpf": 30
+    "status": "cancelled"
   }
 ]
 ```
@@ -179,15 +175,13 @@ Body (JSON) :
     "id": 101,
     "userId": 2,
     "total": 4200,
-    "status": "paid",
-    "totalXpf": 42
+    "status": "paid"
   },
   {
     "id": 102,
     "userId": 2,
     "total": 1800,
-    "status": "cancelled",
-    "totalXpf": 18
+    "status": "cancelled"
   }
 ]
 ```
@@ -196,7 +190,6 @@ Body (JSON) :
 - ✅ Statut 200
 - ✅ Array JSON de 2 objets (uniquement userId=2)
 - ✅ Les deux commandes de Teiki retournées
-- ✅ Chaque commande porte le champ `totalXpf`
 
 ### Variante 3b — userId=3 (Manoa, 2 commandes)
 
@@ -290,8 +283,8 @@ Status : **200 OK**
 Body : 2 commandes payées uniquement
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 },
-  { "id": 103, "userId": 3, "total": 9600, "status": "paid", "totalXpf": 96 }
+  { "id": 101, "userId": 2, "total": 4200, "status": "paid" },
+  { "id": 103, "userId": 3, "total": 9600, "status": "paid" }
 ]
 ```
 
@@ -312,7 +305,7 @@ Status : **200 OK**
 Body : 1 commande payée de Teiki
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 }
+  { "id": 101, "userId": 2, "total": 4200, "status": "paid" }
 ]
 ```
 
@@ -335,8 +328,8 @@ GET /orders?active=false HTTP/1.1
 
 **Preuve du code**
 - `src/server.js:20` : `url.searchParams.get("active") === "true"` (exact match)
-- `src/server.js:28` : appel conditionnel `filterActiveOrders(result)` si pas de `?status=`
-- `src/routes/orders.js:20-22` : filtre correct `order.status !== "cancelled"`
+- `src/server.js:23` : appel conditionnel `filterActiveOrders(result)`
+- `src/routes/orders.js:22-24` : filtre correct `order.status !== "cancelled"`
 
 ---
 
@@ -414,11 +407,11 @@ Status : **404 Not Found**
 Body : `{ "error": "Not found" }`
 
 **Preuve du code**
-- `src/server.js:28` : fallback 404 pour tout ce qui ne match pas
+- `src/server.js:36` : fallback 404 pour tout ce qui ne match pas
 
 ---
 
-## Scenario 6 — Composition de filtres (userId + active ou status)
+## Scenario 6 — Composition de filtres (userId + active)
 
 **Classification** : nominal, cas d'interaction de filtres
 
@@ -435,37 +428,14 @@ Body : 1 commande payée de Teiki (101)
 
 **Ordre d'application des filtres**
 1. `userId=2` → filtre sur Teiki → [101, 102]
-2. `active=true` (et `status` absent) → `filterActiveOrders` → [101]
+2. `active=true` → `filterActiveOrders` → [101]
 
 **Points de contrôle**
 - ✅ Composition : userId appliqué en premier, active ensuite
 - ✅ Commande 102 (annulée) exclue correctement
 
-### Variante 6b — status prime sur active
-
-**Requête**
-```
-GET /orders?active=true&status=cancelled HTTP/1.1
-```
-
-Status : **200 OK**
-
-Body : 2 commandes annulées (102, 104) — `?status=` prend la main sur `?active=true`
-```json
-[
-  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "totalXpf": 18 },
-  { "id": 104, "userId": 3, "total": 3000, "status": "cancelled", "totalXpf": 30 }
-]
-```
-
-**Points de contrôle**
-- ✅ `?status=cancelled` est appliqué (filtre par statut exact)
-- ✅ `?active=true` ignoré quand `?status=` est présent
-- ✅ Résultat : commandes 102 et 104
-- ✅ Chaque commande porte le champ `totalXpf`
-
 **Preuve du code**
-- `src/server.js:26-29` : composition des filtres, status prioritaire
+- `src/server.js:19-23` : composition des filtres, userId puis active
 
 ---
 
@@ -490,64 +460,7 @@ Body : 2 commandes annulées (102, 104) — `?status=` prend la main sur `?activ
 
 **Preuve du code**
 - `src/routes/users.js:3-7` : `const users = [...]` réinitialisé à chaque require
-- `src/routes/orders.js:3-8` : `const orders = [...]` réinitialisé à chaque require
-
----
-
-## Scenario 8 — Filtrer commandes par statut (?status=)
-
-**Classification** : nominal, filtre par statut exact
-
-**Objectif** : vérifier les différentes valeurs du filtre `?status=`
-
-### Variante 8a — status=paid
-
-**Requête** : `GET /orders?status=paid`
-
-Status : **200 OK**
-
-Body : 2 commandes payées (101, 103)
-
-**Points de contrôle**
-- ✅ Seules les commandes avec `status="paid"` retournées
-
-### Variante 8b — status=cancelled
-
-**Requête** : `GET /orders?status=cancelled`
-
-Status : **200 OK**
-
-Body : 2 commandes annulées (102, 104)
-
-**Points de contrôle**
-- ✅ Seules les commandes annulées retournées
-
-### Variante 8c — status=canceled (orthographe américaine, 1 l)
-
-**Requête** : `GET /orders?status=canceled`
-
-Status : **200 OK**
-
-Body : mêmes 2 commandes annulées (102, 104) — alias normalisé côté serveur
-
-**Points de contrôle**
-- ✅ `?status=canceled` et `?status=cancelled` retournent les mêmes commandes
-- ✅ Normalisation dans `src/server.js:24`
-
-### Variante 8d — status inconnu
-
-**Requête** : `GET /orders?status=unknown`
-
-Status : **200 OK**
-
-Body : `[]` (liste vide)
-
-**Points de contrôle**
-- ✅ Statut inconnu → liste vide, pas d'erreur 400
-
-**Preuve du code**
-- `src/server.js:21,24,29` : lecture, normalisation, appel `filterByStatus`
-- `src/routes/orders.js:24-26` : `filterByStatus(orderList, status)` — filtre exact
+- `src/routes/orders.js:4-8` : `const orders = [...]` réinitialisé à chaque require
 
 ---
 
@@ -556,13 +469,12 @@ Body : `[]` (liste vide)
 | Scenario | Chemin de code | Statut |
 |----------|----------------|--------|
 | 1. Lister utilisateurs | src/server.js:14-16, src/routes/users.js:9-11 | ✅ Fonctionnel |
-| 2. Lister commandes | src/server.js:18-32, src/routes/orders.js:12-14 | ✅ Fonctionnel |
-| 3. Filtrer par userId | src/server.js:26, src/routes/orders.js:16-18 | ✅ Fonctionnel |
-| 4. Filtrer par active=true | src/server.js:28, src/routes/orders.js:20-22 | ✅ Fonctionnel (corrigé CLA-114) |
-| 5. Routes invalides | src/server.js:34 | ✅ Fonctionnel |
-| 6. Composition filtres | src/server.js:26-29 | ✅ Fonctionnel (status > active) |
-| 7. Données statiques | src/routes/*.js:5-10 | ✅ Vérifiable |
-| 8. Filtrer par status | src/server.js:21,24,29, src/routes/orders.js:24-26 | ✅ Fonctionnel (CLA-66) |
+| 2. Lister commandes | src/server.js:18-26, src/routes/orders.js:10-12 | ✅ Fonctionnel |
+| 3. Filtrer par userId | src/server.js:22, src/routes/orders.js:14-16 | ✅ Fonctionnel |
+| 4. Filtrer par active=true | src/server.js:23, src/routes/orders.js:22-24 | ✅ Fonctionnel (corrigé CLA-114) |
+| 5. Routes invalides | src/server.js:36 | ✅ Fonctionnel |
+| 6. Composition filtres | src/server.js:19-23 | ✅ Fonctionnel |
+| 7. Données statiques | src/routes/*.js:4-8 | ✅ Vérifiable |
 
 ## Instructions de recette — à la main ou automatisé
 
@@ -597,6 +509,6 @@ node --test test/orders.test.js
 
 Tous les scenarios sont dérivés des workflows validés :
 - **WORKFLOW_LIST_USERS** (src/server.js:14-16, src/routes/users.js:9-11)
-- **WORKFLOW_LIST_ORDERS** (src/server.js:18-26, src/routes/orders.js:10-26)
+- **WORKFLOW_LIST_ORDERS** (src/server.js:18-26, src/routes/orders.js:10-24)
 
 Aucun scenario n'invente une fonctionnalité absente du code.

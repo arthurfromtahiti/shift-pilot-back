@@ -80,10 +80,10 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 **Résultat** : 4 commandes (toutes, incluses les annulées)
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 },
-  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "totalXpf": 18 },
-  { "id": 103, "userId": 3, "total": 9600, "status": "paid", "totalXpf": 96 },
-  { "id": 104, "userId": 3, "total": 3000, "status": "cancelled", "totalXpf": 30 }
+  { "id": 101, "userId": 2, "total": 4200, "status": "paid" },
+  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled" },
+  { "id": 103, "userId": 3, "total": 9600, "status": "paid" },
+  { "id": 104, "userId": 3, "total": 3000, "status": "cancelled" }
 ]
 ```
 
@@ -102,8 +102,8 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 **Résultat** : commandes de l'utilisateur 2 (y compris annulée)
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 },
-  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "totalXpf": 18 }
+  { "id": 101, "userId": 2, "total": 4200, "status": "paid" },
+  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled" }
 ]
 ```
 
@@ -113,14 +113,13 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 
 **Déroulement**
 1. Dispatcher teste condition `GET /orders` → vrai
-2. Lecture `userId = 2`, `activeOnly = true`, `statusParam = null` (`src/server.js:19-21`)
-3. `normalizedStatus = null` (pas de ?status=) (`src/server.js:24`)
-4. Appel `getOrdersByUser(2)` → retourne [101, 102]
-5. `activeOnly && normalizedStatus === null` → vrai : **appel `filterActiveOrders([101, 102])`** (`src/server.js:28`)
-6. `filterActiveOrders` compare `order.status !== "cancelled"` (correct, double l) (`src/routes/orders.js:20-22`)
+2. Lecture `userId = 2`, `activeOnly = true` (`src/server.js:19-20`)
+3. Appel `getOrdersByUser(2)` → retourne [101, 102]
+4. `activeOnly === true` → **appel `filterActiveOrders([101, 102])`** (`src/server.js:23`)
+5. `filterActiveOrders` compare `order.status !== "cancelled"` (correct, double l) (`src/routes/orders.js:22-23`)
    - Commande 101 : `"paid" !== "cancelled"` → true, passe
    - Commande 102 : `"cancelled" !== "cancelled"` → false, **exclue**
-7. Résultat retourné : [101]
+6. Résultat retourné : [101]
 
 **Ce qui est reçu** : uniquement la commande payée (101) — comportement correct depuis CLA-114.
 
@@ -130,25 +129,11 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 
 **Déroulement**
 1. Dispatcher teste `GET /orders` → vrai
-2. Lecture `userId = null`, `activeOnly = true`, `statusParam = null`
+2. Lecture `userId = null`, `activeOnly = true`
 3. `listOrders()` → [101, 102, 103, 104] (tri par id)
 4. `filterActiveOrders([...])` → exclut 102 et 104 (`"cancelled"`)
 
 **Résultat reçu** : 2 commandes payées (101, 103) — comportement correct.
-
-#### Variante 2e — Filtre par statut exact
-
-**Requête** : `GET /orders?status=paid`
-
-**Déroulement**
-1. Lecture `statusParam = "paid"`, `normalizedStatus = "paid"` (`src/server.js:21,24`)
-2. `listOrders()` → [101, 102, 103, 104]
-3. `normalizedStatus !== null` → **appel `filterByStatus(result, "paid")`** (`src/server.js:29`)
-4. Retourne les commandes avec `status === "paid"` : [101, 103]
-
-**Résultat** : 2 commandes payées. `?status=cancelled` retournerait [102, 104]. `?status=canceled` (1 l) est normalisé et retourne les mêmes résultats que `?status=cancelled`.
-
-**Priorité status/active** : si `?active=true&status=cancelled` → `status` prime (`src/server.js:28-29`), retourne [102, 104] (les annulées).
 
 ### Parcours 3 — Tentative d'accès refusé ou mal formé
 
@@ -172,11 +157,9 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 
 ### Commandes
 
-1. **Filtre `userId` (fonctionnel)** : `GET /orders?userId=N` filtre par égalité stricte (`order.userId === N`). Paramètre converti en nombre entier avant comparaison. Si `userId` n'existe pas (ex. `userId=99`), retour 200 + `[]` (liste vide, pas erreur 404) — `src/routes/orders.js:16-18`.
-2. **Filtre `active` (fonctionnel depuis CLA-114)** : `GET /orders?active=true` exclut les commandes avec `status === "cancelled"`. Ignoré si `?status=` est aussi fourni (`?status=` prend la main) — `src/routes/orders.js:20-22`, `src/server.js:28`.
-3. **Filtre `status` (nouveau, CLA-66)** : `GET /orders?status=<valeur>` filtre par correspondance exacte sur `order.status`. `?status=canceled` (1 l) normalisé en `"cancelled"` (`src/server.js:24`). Statut inconnu → `[]`. Prioritaire sur `active=true` — `src/routes/orders.js:24-26`, `src/server.js:29`.
-4. **Statuts de commande** : enum implicite = {`"paid"`, `"cancelled"`} (orthographe britannique, double `l`) — `src/routes/orders.js:5-10`.
-5. **Priorité des filtres** : `userId` s'applique en premier, puis `status` (si fourni) ou `active` (si `status` absent) — `src/server.js:26-29`.
+1. **Filtre `userId` (fonctionnel)** : `GET /orders?userId=N` filtre par égalité stricte (`order.userId === N`). Paramètre converti en nombre entier avant comparaison. Si `userId` n'existe pas (ex. `userId=99`), retour 200 + `[]` (liste vide, pas erreur 404) — `src/routes/orders.js:14-16`.
+2. **Filtre `active` (fonctionnel depuis CLA-114)** : `GET /orders?active=true` exclut les commandes avec `status === "cancelled"` — `src/routes/orders.js:22-24`, `src/server.js:23`.
+3. **Statuts de commande** : enum implicite = {`"paid"`, `"cancelled"`} (orthographe britannique, double `l`) — `src/routes/orders.js:4-8`.
 6. **Méthode GET exclusive** : seul `GET` répond sur `/orders`. Autres méthodes → 404.
 7. **Lien utilisateur (non enforced)** : chaque commande lie un `userId` à un utilisateur (données cohérentes), mais aucune vérification ne force cette contrainte dans le code. Un `userId` invalide ne génère pas d'erreur, juste une liste vide.
 
