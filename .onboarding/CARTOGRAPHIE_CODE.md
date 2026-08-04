@@ -39,12 +39,12 @@ shift-pilot-back/
 |---------|------|----------|--------|
 | `users` | Data (const array) | 3-7 | Tableau littéral, 3 objets `{id, name, email, role}`. Données figées en mémoire. |
 | `listUsers()` | Function export | 9-11 | Retourne `users` complet. Aucun paramètre, aucun filtre. |
-| `getUserById(id)` | Function export | 13-15 | Lookup par ID via `find()`. **Importée dans server.js:3, jamais appelée.** |
+| `getUserById(id)` | Function export | 13-15 | Lookup par ID via `find()`. Appelée par GET /users/:id (server.js:20-25) et par GET /orders pour enrichir chaque commande avec le nom du client (server.js:40-42, CLA-187). |
 | `isAdmin(user)` | Function export | 17-19 | Prédicat : `user !== null && user.role === "admin"`. Exportée, jamais importée. |
 | Route HTTP | GET /users | server.js:14-16 | `GET /users` → `listUsers()` → JSON 200 |
 
 **Points critiques**
-- **Import mort** : `getUserById` importé ligne 3 de server.js mais aucune route ne l'appelle — signal d'une future route `/users/:id` non câblée.
+- **`getUserById` maintenant utilisée** : importée ligne 3 de server.js et appelée par GET /users/:id (route câblée, CLA-187) et par GET /orders pour enrichissement clientName.
 - **Export mort** : `isAdmin` exporté ligne 21 de users.js, jamais consommé — squelette d'autorisation déconnecté.
 - **Données brutes en réponse** : champ `role` exposé sans contrôle d'accès (src/routes/users.js:4-6, src/server.js:14-16).
 
@@ -123,7 +123,7 @@ shift-pilot-back/
 | Export | Fichier | Usage |
 |--------|---------|-------|
 | `listUsers()` | users.js:9-11 | Exposé via GET /users. Importé : server.js:3. |
-| `getUserById(id)` | users.js:13-15 | Importé : server.js:3. **Jamais appelé** (route /users/:id non câblée). |
+| `getUserById(id)` | users.js:13-15 | Importé : server.js:3. Appelé par GET /users/:id (server.js:20-25, CLA-187) et par GET /orders pour enrichir chaque commande avec clientName (server.js:40-42, CLA-187). |
 | `isAdmin(user)` | users.js:17-19 | Exporté ligne 21. **Jamais importé.** |
 | `listOrders()` | orders.js:12-14 | Utilisé via GET /orders sans filtre. Retourne les commandes triées par id. Importé : server.js:4. |
 | `getOrdersByUser(id)` | orders.js:16-18 | Utilisé par GET /orders?userId=. Importé : server.js:4. |
@@ -157,13 +157,15 @@ shift-pilot-back/
 - Correction du bug `filterActiveOrders` → changer `"canceled"` en `"cancelled"`
 - Ajout d'un filtre par statut supplémentaire → nouvelle fonction + branchement dans server.js
 
-### 3. `src/routes/users.js:3,17-19` (hotspot secondaire — imports morts)
+### 3. `src/routes/users.js:3,17-19` (hotspot secondaire — imports partially used)
 
 **Criticité** : faible. Décision produit requise.
 
-**Options**
-- (a) Câbler route `GET /users/:id` (utiliser `getUserById`)
-- (b) Retirer l'import mort de `server.js:3`
+**État actuel** : `getUserById` est maintenant **utilisée** (CLA-187) : wiring de GET /users/:id (server.js:20-25) et enrichissement clientName sur GET /orders (server.js:40-42). `isAdmin` reste un export mort.
+
+**Options restantes**
+- (a) ✅ Câbler route `GET /users/:id` (utiliser `getUserById`) — FAIT en CLA-187
+- (b) Retirer ou consolider les imports inutilisés (seul `isAdmin` reste mort)
 - (c) Câbler contrôle d'accès (utiliser `isAdmin`)
 - (d) Retirer `isAdmin` exporté
 
