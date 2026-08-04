@@ -22,7 +22,7 @@ const server = http.createServer((req, res) => {
     let result = userIdParam ? getOrdersByUser(Number(userIdParam)) : listOrders();
     if (activeOnly) result = filterActiveOrders(result);
 
-    return sendJson(res, 200, result);
+    return sendJson(res, 200, result.map(o => ({ ...o, totalXpf: Math.round(o.total / 100) })));
   }
 
   const orderByIdMatch = /^\/orders\/[^/]+$/.exec(url.pathname);
