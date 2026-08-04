@@ -1,7 +1,9 @@
 const http = require("node:http");
 const { URL } = require("node:url");
+
 const { listUsers, getUserById } = require("./routes/users");
-const { listOrders, getOrdersByUser, filterActiveOrders } = require("./routes/orders");
+
+const { listOrders, getOrdersByUser, filterActiveOrders, getOrderById, filterByStatus } = require("./routes/orders");
 
 function sendJson(res, status, body) {
   res.writeHead(status, { "Content-Type": "application/json" });
@@ -15,12 +17,28 @@ const server = http.createServer((req, res) => {
     return sendJson(res, 200, listUsers());
   }
 
+  const userByIdMatch = req.method === "GET" && /^\/users\/(\d+)$/.exec(url.pathname);
+  if (userByIdMatch) {
+    const user = getUserById(Number(userByIdMatch[1]));
+    if (user === null) return sendJson(res, 404, { error: "Not found" });
+    return sendJson(res, 200, user);
+  }
+
   if (url.pathname === "/orders" && req.method === "GET") {
     const userIdParam = url.searchParams.get("userId");
     const activeOnly = url.searchParams.get("active") === "true";
+    const statusParam = url.searchParams.get("status");
+
+    // "canceled" (American, 1 l) is an alias for the canonical "cancelled" stored in data
+    const normalizedStatus = statusParam === "canceled" ? "cancelled" : statusParam;
 
     let result = userIdParam ? getOrdersByUser(Number(userIdParam)) : listOrders();
-    if (activeOnly) result = filterActiveOrders(result);
+    // explicit status wins over active-only: the two filters are semantically contradictory
+    if (activeOnly && normalizedStatus === null) result = filterActiveOrders(result);
+    if (normalizedStatus !== null) result = filterByStatus(result, normalizedStatus);
+
+    return sendJson(res, 200, result.map(o => ({ ...o, totalXpf: Math.round(o.total / 100) })));
+  }
 
     return sendJson(res, 200, result.map(o => {
       const user = getUserById(o.userId);
