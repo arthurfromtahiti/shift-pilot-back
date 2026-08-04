@@ -37,7 +37,7 @@ const server = http.createServer((req, res) => {
     if (activeOnly && normalizedStatus === null) result = filterActiveOrders(result);
     if (normalizedStatus !== null) result = filterByStatus(result, normalizedStatus);
 
-    return sendJson(res, 200, result.map(o => ({ ...o, totalXpf: Math.round(o.total / 100) })));
+    return sendJson(res, 200, result);
   }
 
   const orderByIdMatch = /^\/orders\/[^/]+$/.exec(url.pathname);
