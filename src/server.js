@@ -22,7 +22,10 @@ const server = http.createServer((req, res) => {
     let result = userIdParam ? getOrdersByUser(Number(userIdParam)) : listOrders();
     if (activeOnly) result = filterActiveOrders(result);
 
-    return sendJson(res, 200, result);
+    return sendJson(res, 200, result.map(o => {
+      const user = getUserById(o.userId);
+      return { ...o, clientName: user ? user.name : null };
+    }));
   }
 
   sendJson(res, 404, { error: "Not found" });
