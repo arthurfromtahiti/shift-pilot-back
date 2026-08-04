@@ -40,9 +40,10 @@ const server = http.createServer((req, res) => {
     if (activeOnly && normalizedStatus === null) result = filterActiveOrders(result);
     if (normalizedStatus !== null) result = filterByStatus(result, normalizedStatus);
 
-    // date range filter — YYYY-MM-DD compared against createdAt ISO string
-    if (fromParam) result = result.filter((o) => o.createdAt >= fromParam + "T00:00:00Z");
-    if (toParam) result = result.filter((o) => o.createdAt <= toParam + "T23:59:59Z");
+    // date range filter — YYYY-MM-DD compared against createdAt ISO string; invalid format silently ignored
+    const isValidDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s);
+    if (fromParam && isValidDate(fromParam)) result = result.filter((o) => o.createdAt >= fromParam + "T00:00:00Z");
+    if (toParam && isValidDate(toParam)) result = result.filter((o) => o.createdAt <= toParam + "T23:59:59Z");
 
     // date sort — unknown sort values are silently ignored, no mutation of source array
     if (sortParam === "date_asc") result = [...result].sort((a, b) => a.createdAt < b.createdAt ? -1 : 1);

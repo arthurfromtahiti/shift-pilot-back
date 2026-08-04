@@ -189,3 +189,22 @@ test("GET /orders?sort=invalide retourne toutes les commandes sans erreur", asyn
   const result = await get("/orders?sort=invalide");
   assert.equal(result.length, 4, "un sort invalide ne doit pas provoquer d'erreur ni filtrer de commandes");
 });
+
+// CLA-226 — from/to invalides ignorés silencieusement
+test("GET /orders?from=foo retourne toutes les commandes sans erreur", async () => {
+  const result = await get("/orders?from=foo");
+  assert.equal(result.length, 4, "un from invalide doit être ignoré silencieusement");
+});
+
+test("GET /orders?to=not-a-date retourne toutes les commandes sans erreur", async () => {
+  const result = await get("/orders?to=not-a-date");
+  assert.equal(result.length, 4, "un to invalide doit être ignoré silencieusement");
+});
+
+// CLA-226 — combinaison avec filtre existant
+test("GET /orders?userId=3&sort=date_desc retourne les commandes de l'utilisateur 3 triées décroissant", async () => {
+  const result = await get("/orders?userId=3&sort=date_desc");
+  const ids = result.map((o) => o.id);
+  // id103 (mars) et id104 (avr) appartiennent à userId=3 ; desc → 104 avant 103
+  assert.deepEqual(ids, [104, 103], "combinaison userId + sort=date_desc doit retourner 104 avant 103");
+});
