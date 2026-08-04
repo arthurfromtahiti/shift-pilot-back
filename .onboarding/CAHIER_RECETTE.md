@@ -8,10 +8,10 @@
 
 Ce cahier couvre **100% des routes implémentées** :
 - `GET /users` — route de consultation de l'annuaire
-- `GET /orders` — route de consultation/filtrage des commandes (filtres : userId, active, status)
+- `GET /orders` — route de consultation/filtrage des commandes (filtres : userId, active)
 - Fallback 404 — routes inexistantes ou méthodes interdites
 
-Aucune route d'écriture à tester (POST/PUT/PATCH/DELETE inexistantes).
+**Note** : le filtre `?status=...` n'est **pas implémenté**. Le filtre `?active=true` **a un bug volontaire** et ne filtre jamais rien. Aucune route d'écriture à tester (POST/PUT/PATCH/DELETE inexistantes).
 
 ---
 
@@ -265,13 +265,13 @@ Body : `[]`
 
 ---
 
-## Scenario 4 — Filtrer commandes actives (active=true) — Fonctionnel depuis CLA-114
+## Scenario 4 — Filtrer commandes actives (active=true) — BUG VOLONTAIRE
 
-**Classification** : nominal, filtre fonctionnel
+**Classification** : cas d'error, filtre défectueux (démonstration volontaire du bug du pilote)
 
-**Objectif** : vérifier que le filtre `?active=true` exclut bien les commandes annulées
+**Objectif** : démontrer le bug du filtre `?active=true` qui ne filtre jamais car il compare une orthographe différente
 
-### Variante 4a — active=true sans userId
+### Variante 4a — active=true sans userId (BUG OBSERVABLE)
 
 **Requête**
 ```
@@ -280,7 +280,7 @@ GET /orders?active=true HTTP/1.1
 
 Status : **200 OK**
 
-Body : 2 commandes payées uniquement
+**Body attendu (si le filtre fonctionnait)** : 2 commandes payées uniquement
 ```json
 [
   { "id": 101, "userId": 2, "total": 4200, "status": "paid" },
@@ -288,12 +288,23 @@ Body : 2 commandes payées uniquement
 ]
 ```
 
-**Points de contrôle**
-- ✅ Statut 200
-- ✅ Commandes annulées (102, 104) absentes du résultat
-- ✅ 2 commandes payées retournées
+**Body réellement reçu (BUG OBSERVABLE)** : **4 commandes incluant les annulées**
+```json
+[
+  { "id": 101, "userId": 2, "total": 4200, "status": "paid" },
+  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled" },
+  { "id": 103, "userId": 3, "total": 9600, "status": "paid" },
+  { "id": 104, "userId": 3, "total": 3000, "status": "cancelled" }
+]
+```
 
-### Variante 4b — active=true avec userId=2
+**Points de contrôle**
+- ⚠️ Statut 200 (correct)
+- ❌ Commandes annulées (102, 104) **PRÉSENTES** dans le résultat — **INCORRECT**
+- ❌ Le filtre ne fonctionne pas : `filterActiveOrders()` compare à `"canceled"` (orthographe US) alors que les données portent `"cancelled"` (orthographe GB)
+- ⚠️ Preuves : `src/routes/orders.js:23` (bug de comparaison orthographique)
+
+### Variante 4b — active=true avec userId=2 (BUG OBSERVABLE)
 
 **Requête**
 ```
@@ -302,16 +313,25 @@ GET /orders?userId=2&active=true HTTP/1.1
 
 Status : **200 OK**
 
-Body : 1 commande payée de Teiki
+**Body attendu (si le filtre fonctionnait)** : 1 commande payée de Teiki
 ```json
 [
   { "id": 101, "userId": 2, "total": 4200, "status": "paid" }
 ]
 ```
 
+**Body réellement reçu (BUG OBSERVABLE)** : **2 commandes incluant l'annulée**
+```json
+[
+  { "id": 101, "userId": 2, "total": 4200, "status": "paid" },
+  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled" }
+]
+```
+
 **Points de contrôle**
-- ✅ Filtre `userId` appliqué en premier
-- ✅ Filtre `active=true` appliqué ensuite, exclut commande 102 (annulée)
+- ✅ Filtre `userId` appliqué correctement en premier → [101, 102]
+- ❌ Filtre `active=true` **NE filtre rien** — commande 102 (annulée) **PASSE À TRAVERS**
+- ❌ Le bug orthographique s'applique : `"cancelled" !== "canceled"` → true, l'objet passe
 
 ### Variante 4c — active=false (paramètre ignoré)
 
@@ -326,10 +346,11 @@ GET /orders?active=false HTTP/1.1
 - ✅ Seule chaîne `"true"` (exact) déclenche le filtre
 - ✅ Autres valeurs → false (pas d'erreur)
 
-**Preuve du code**
-- `src/server.js:20` : `url.searchParams.get("active") === "true"` (exact match)
-- `src/server.js:23` : appel conditionnel `filterActiveOrders(result)`
-- `src/routes/orders.js:22-24` : filtre correct `order.status !== "cancelled"`
+**Preuve du code (démontrant le bug)**
+- `src/server.js:20` : `url.searchParams.get("active") === "true"` (exact match, correct)
+- `src/server.js:23` : appel conditionnel `filterActiveOrders(result)` (correct)
+- `src/routes/orders.js:23` : **BUG** — `order.status !== "canceled"` (orthographe US) au lieu de `"cancelled"` (orthographe GB utilisée dans les données)
+- Résultat : aucune commande n'est jamais exclue car la condition ne match jamais
 
 ---
 
@@ -471,7 +492,7 @@ Body : 1 commande payée de Teiki (101)
 | 1. Lister utilisateurs | src/server.js:14-16, src/routes/users.js:9-11 | ✅ Fonctionnel |
 | 2. Lister commandes | src/server.js:18-26, src/routes/orders.js:10-12 | ✅ Fonctionnel |
 | 3. Filtrer par userId | src/server.js:22, src/routes/orders.js:14-16 | ✅ Fonctionnel |
-| 4. Filtrer par active=true | src/server.js:23, src/routes/orders.js:22-24 | ✅ Fonctionnel (corrigé CLA-114) |
+| 4. Filtrer par active=true | src/server.js:23, src/routes/orders.js:23 | ❌ BUG — orthographe US vs GB, ne filtre jamais |
 | 5. Routes invalides | src/server.js:36 | ✅ Fonctionnel |
 | 6. Composition filtres | src/server.js:19-23 | ✅ Fonctionnel |
 | 7. Données statiques | src/routes/*.js:4-8 | ✅ Vérifiable |
@@ -496,12 +517,14 @@ curl 'http://localhost:3000/orders?active=true' | jq .
 
 ### Approche automatisée (existant)
 
-Les tests `test/orders.test.js` couvrent les filtres actifs, status, alias, et priorité. Tous les tests passent au vert.
+Le fichier `test/orders.test.js` contient un test qui **vérifie que le bug existe** : le filtre `active=true` ne fonctionne pas. C'est volontaire — le bug est documenté comme une démonstration du pilote.
 
 Exécution :
 ```bash
 node --test test/orders.test.js
 ```
+
+Résultat attendu : test au vert (le bug est bien présent comme prévu).
 
 ---
 

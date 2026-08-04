@@ -19,7 +19,7 @@ shift-pilot-back/
 ├── README.md             [déclaration pilote SHIFT]
 ```
 
-**3 fichiers source, 1 fichier de test, 1 dépendance externe** : `lodash ^4.17.15` (utilisé dans `src/routes/orders.js` via `_.sortBy`).
+**3 fichiers source, 1 fichier de test, aucune dépendance externe** : `package.json` vide.
 
 ## Domaines et fichiers
 
@@ -62,22 +62,23 @@ shift-pilot-back/
 
 | Élément | Type | Ligne(s) | Détail |
 |---------|------|----------|--------|
-| `_` | Import (lodash) | 3 | `const _ = require("lodash")`. Utilisé uniquement dans `listOrders()`. |
-| `orders` | Data (const array) | 5-10 | Tableau littéral, 4 objets `{id, userId, total, status}`. Statut ∈ {`"paid"`, `"cancelled"`} (double l). |
-| `listOrders()` | Function export | 12-14 | Retourne `_.sortBy(orders, "id")` — tri stable par id croissant. |
-| `getOrdersByUser(userId)` | Function export | 16-18 | Filtre par `order.userId === userId`. Fonctionne correctement. |
-| `filterActiveOrders(orderList)` | Function export | 20-22 | Exclut les commandes dont `status === "cancelled"`. Corrigé — fonctionne correctement. |
+| `orders` | Data (const array) | 3-8 | Tableau littéral, 4 objets `{id, userId, total, status}`. Statut ∈ {`"paid"`, `"cancelled"`} (double l). |
+| `listOrders()` | Function export | 10-12 | Retourne `orders` sans modification. Aucun tri appliqué. |
+| `getOrdersByUser(userId)` | Function export | 14-16 | Filtre par `order.userId === userId`. Fonctionne correctement. |
+| `filterActiveOrders(orderList)` | Function export | 22-24 | **Bug volontaire** : compare `order.status !== "canceled"` (orthographe américaine) alors que les données portent `"cancelled"` (britannique). La fonction ne filtre jamais rien et retourne toujours la liste intacte. |
+| `getOrderById(id)` | Function export | 26-28 | Lookup par ID via `find()`. Importée dans server.js:4 mais jamais appelée (route `/orders/:id` n'existe pas). |
 | Route HTTP | GET /orders | server.js:18-26 | `GET /orders` avec params optionnels `userId`, `active` → JSON 200 |
 
 **Composition des filtres** (`src/server.js:19-23`)
 ```
 1. Si userId fourni → getOrdersByUser(userId)
 2. Sinon → listOrders()
-3. Si activeOnly vrai → filterActiveOrders(result)
+3. Si activeOnly vrai → filterActiveOrders(result) [BUG: ne filtre jamais rien]
 4. Retourner result
 ```
 
 **Points critiques**
+- **Bug volontaire** : `filterActiveOrders()` compare à `"canceled"` (US) au lieu de `"cancelled"` (GB) → ne filtre jamais rien. Les commandes annulées passent toujours à travers `?active=true`.
 - **Validation d'entrée absente** : `userId=abc` → `NaN` silencieux, pas d'erreur 400.
 
 ### Domaine : `api-http-routage` (technique, priorité support)
@@ -150,9 +151,10 @@ shift-pilot-back/
 
 **Criticité** : moyenne. Évolution fonctionnelle principale du filtre commandes.
 
-**État actuel** : bug `filterActiveOrders` corrigé (CLA-114). Nouveau filtre `filterByStatus` ajouté (CLA-66). lodash utilisé pour le tri.
+**État actuel** : **bug volontaire non corrigé**. `filterActiveOrders()` compare à `"canceled"` au lieu de `"cancelled"` — la fonction ne filtre jamais. Aucune fonction `filterByStatus`. Aucune dépendance lodash.
 
 **Changements attendus**
+- Correction du bug `filterActiveOrders` → changer `"canceled"` en `"cancelled"`
 - Ajout d'un filtre par statut supplémentaire → nouvelle fonction + branchement dans server.js
 
 ### 3. `src/routes/users.js:3,17-19` (hotspot secondaire — imports morts)
@@ -175,8 +177,8 @@ Aucune. Tous les fichiers source ont été lus intégralement.
 
 **Domaine utilisateurs** : src/routes/users.js:1-21 (lu intégralement, 21 lignes)
 
-**Domaine commandes** : src/routes/orders.js:1-29 (lu intégralement, 29 lignes — inclut lodash et filterByStatus)
+**Domaine commandes** : src/routes/orders.js:1-30 (lu intégralement, 30 lignes)
 
-**Package** : package.json (lodash ^4.17.15, engines node>=18)
+**Package** : package.json (aucune dépendance, engines node>=18)
 
-**Tests** : test/orders.test.js (tests verts : filterActiveOrders, filterByStatus, ?status=, ?status=canceled, priorité status>active)
+**Tests** : test/orders.test.js (test volontaire : démontre le bug de filterActiveOrders qui ne filtre rien)
