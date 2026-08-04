@@ -18,7 +18,7 @@
 
 **Client HTTP externe** (humain ou système)
 - Peut : lister tous les utilisateurs (`GET /users`)
-- Peut : lister toutes les commandes (`GET /orders`)
+- Peut : lister toutes les commandes (`GET /orders`), enrichies avec `totalXpf` (arrondi du montant en centimes)
 - Peut : filtrer les commandes par utilisateur (`GET /orders?userId=N`)
 - **Peut (bug volontaire)** : filtrer les commandes actives (`GET /orders?active=true` — **NE FONCTIONNE PAS** car `filterActiveOrders()` compare à `"canceled"` au lieu de `"cancelled"`)
 - **Interdit** : filtrer les commandes par statut exact (`GET /orders?status=...` — paramètre `status` n'existe pas)
@@ -77,13 +77,13 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 4. `activeOnly === false` → pas d'appel à `filterActiveOrders` (la réponse retournée directement `src/server.js:25`)
 5. Réponse : statut 200 + tableau JSON
 
-**Résultat** : 4 commandes (toutes, incluses les annulées)
+**Résultat** : 4 commandes (toutes, incluses les annulées), enrichies avec `totalXpf`
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid" },
-  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled" },
-  { "id": 103, "userId": 3, "total": 9600, "status": "paid" },
-  { "id": 104, "userId": 3, "total": 3000, "status": "cancelled" }
+  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 },
+  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "totalXpf": 18 },
+  { "id": 103, "userId": 3, "total": 9600, "status": "paid", "totalXpf": 96 },
+  { "id": 104, "userId": 3, "total": 3000, "status": "cancelled", "totalXpf": 30 }
 ]
 ```
 
@@ -99,11 +99,11 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 5. Résultat : 2 commandes (101 et 102, toutes de Teiki)
 6. Pas d'appel `filterActiveOrders` → tableau retourné tel quel
 
-**Résultat** : commandes de l'utilisateur 2 (y compris annulée)
+**Résultat** : commandes de l'utilisateur 2 (y compris annulée), enrichies avec `totalXpf`
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid" },
-  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled" }
+  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 },
+  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "totalXpf": 18 }
 ]
 ```
 
@@ -121,11 +121,11 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
    - Commande 102 : `"cancelled" !== "canceled"` → true, **PASSE AUSSI** (orthographe ne match pas)
 6. Résultat retourné : [101, 102]
 
-**Ce qui est reçu** : **les deux commandes incluant l'annulée** — **comportement incorrect**. Le bug n'a pas été corrigé.
+**Ce qui est reçu** : **les deux commandes incluant l'annulée** — **comportement incorrect**. Le bug n'a pas été corrigé. Les objets sont enrichis de `totalXpf`.
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid" },
-  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled" }
+  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 },
+  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "totalXpf": 18 }
 ]
 ```
 
@@ -139,13 +139,13 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 3. `listOrders()` → [101, 102, 103, 104] (tri par id)
 4. `filterActiveOrders([...])` → exclut 102 et 104 (`"cancelled"`)
 
-**Résultat reçu** : **4 commandes (y compris les annulées)** — **COMPORTEMENT INCORRECT** car `filterActiveOrders()` compare `order.status !== "canceled"` (orthographe US) alors que les données portent `"cancelled"` (orthographe GB). Aucune commande n'est exclue. Bug volontaire du pilote.
+**Résultat reçu** : **4 commandes (y compris les annulées)** — **COMPORTEMENT INCORRECT** car `filterActiveOrders()` compare `order.status !== "canceled"` (orthographe US) alors que les données portent `"cancelled"` (orthographe GB). Aucune commande n'est exclue. Bug volontaire du pilote. Les objets sont enrichis de `totalXpf`.
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid" },
-  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled" },
-  { "id": 103, "userId": 3, "total": 9600, "status": "paid" },
-  { "id": 104, "userId": 3, "total": 3000, "status": "cancelled" }
+  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 },
+  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "totalXpf": 18 },
+  { "id": 103, "userId": 3, "total": 9600, "status": "paid", "totalXpf": 96 },
+  { "id": 104, "userId": 3, "total": 3000, "status": "cancelled", "totalXpf": 30 }
 ]
 ```
 
