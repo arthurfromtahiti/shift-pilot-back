@@ -98,7 +98,7 @@ shift-pilot-back/
 | Dispatcher | if-else block | 11-35 | Parse `req.url`, teste méthode+chemin, délègue ou retourne 404. |
 | `new URL(req.url, ...)` | URL parsing | 12 | Parse relative à `http://${req.headers.host}` — préserve chemin + query string. |
 | Routes GET /users | if-block | 14-16 | Branchement `→ listUsers()`. |
-| Routes GET /orders | if-block | 18-26 | Branchement + orchestration filtres (userId, active). Paramètres optionnels fournis par query string, appliqués en cascade. Retourne les commandes sans enrichissement supplémentaire. **C'est ici que la logique métier est composée.** |
+| Routes GET /orders | if-block | 18-26 | Branchement + orchestration filtres (userId, active). Paramètres optionnels fournis par query string, appliqués en cascade. Enrichit chaque commande avec `totalXpf: Math.round(total/100)` au moment de la sérialisation (ligne 25). **C'est ici que la logique métier est composée.** |
 | Fallback 404 | if-block | 34 | Tout ce qui ne match pas → 404 + `{error: "Not found"}`. |
 | `require.main === module` | Conditional | 38-42 | Démarre le serveur uniquement si invoqué directement (pas si importé en test). |
 | `module.exports = server` | Export | 44 | Permet d'importer le serveur en test et de le décorer (ex. faire des requêtes HTTP). |

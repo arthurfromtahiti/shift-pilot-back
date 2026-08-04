@@ -1,44 +1,24 @@
 # Relecture — PR CLA-130
 
 ## Verdict global
-✅ **Résolu** — Commit `c3eba89` réaligne les trois documents (CARTOGRAPHIE_CODE, CDC_FONCTIONNEL, CAHIER_RECETTE) sur le code réellement présent (src/server.js:25 et src/routes/orders.js). Toutes les affirmations fausses ont été purgées et remplacées par des descriptions traçables au code.
+À corriger — la resoumission a réaligné les trois documents sur l'état courant de cette branche, mais pas sur le matériau amont explicitement visé par CLA-130. La preuve amont `CLA-125` montre que `GET /orders` enrichit chaque commande avec `totalXpf`; les documents relus ont au contraire supprimé ce champ et décrivent encore des réponses sans `totalXpf`.
 
-État courant du 2026-08-04 : `GET /orders` avec `?userId` et `?active` (bug volontaire documenté), sans `totalXpf`, sans `?status=`, sans `lodash`.
-
-## Corrections appliquées (commit c3eba89)
-
-### CARTOGRAPHIE_CODE.md
-✅ Ligne 22 : corrigé "1 dépendance externe lodash" → "aucune dépendance externe"
-✅ Lignes 65-68 : removed false claim about `_` import and `_.sortBy` usage; `listOrders()` now correctly states it returns orders unmodified
-✅ Lignes 69-70 : `filterActiveOrders()` now correctly documents the bug (compares to "canceled" vs "cancelled")
-✅ Lignes 73-84 : updated "Composition des filtres" to document the bug
-✅ Lignes 153-157 : hotspot 2 now correctly states bug is NOT fixed and lodash is NOT used
-✅ Lignes 180-182 : preuves section updated to remove references to filterByStatus and false test claims
-
-### CDC_FONCTIONNEL.md
-✅ Lignes 17-27 : corrected capabilities list — `?status=` removed, `active=true` marked as non-functional (bug documented)
-✅ Lignes 136 : Variante 2d now correctly states all 4 commands returned (not just 2 paid) due to bug
-✅ Lignes 110-122 : Variante 2c completely rewritten to show the bug (both commandes pass through, not just 101)
-✅ Lignes 185-189 : removed totalXpf from order data examples
-✅ Lignes 158-165 : corrected rules for commandes — status filter doesn't exist, active=true doesn't work
-✅ Lignes 195-210 : updated "Hors périmètre" to clarify status filter not implemented and active bug not fixed
-
-### CAHIER_RECETTE.md
-✅ Lignes 11-13 : updated couverture note to clarify status not implemented, active=true has bug
-✅ Lignes 268-333 : Scenario 4 completely rewritten from "nominal fonctionnel" to "cas d'erreur bug volontaire"
-  - 4a now shows actual output (all 4 orders) vs expected (2 paid)
-  - 4b now shows actual output (2 orders including cancelled) vs expected (1 paid)
-✅ Lignes 329-333 : preuves updated to document the "canceled" vs "cancelled" mismatch
-✅ Lignes 468-499 : approche automatisée clarified — test.js verifies the bug exists, not that filters work
+## Problèmes bloquants
+- La preuve amont du changement existe et n'est pas exploitée. Le commit `6962faf` (`feat(orders): ajouter totalXpf à GET /orders (CLA-125)`) montre dans `src/server.js` la transformation `result.map(o => ({ ...o, totalXpf: Math.round(o.total / 100) }))` sur la réponse `GET /orders`. Ce point répond exactement au contexte de ticket. Le lot relu ne marque pas cette divergence comme hypothèse ni comme limite : il l'efface.
+- `.onboarding/CARTOGRAPHIE_CODE.md` décrit `GET /orders` comme un simple retour JSON 200 avec paramètres optionnels `userId`, `active`, sans mention de l'enrichissement `totalXpf` pourtant prouvé par l'amont `CLA-125`.
+- `.onboarding/CDC_FONCTIONNEL.md` montre encore des exemples JSON `{ id, userId, total, status }` sans `totalXpf`. Le CDC sous-exploite donc une matière disponible et prouvée au lieu de refléter le contrat décrit par CLA-125.
+- `.onboarding/CAHIER_RECETTE.md` et ses blocs `GET /orders` gardent des réponses sans `totalXpf`, et les points de contrôle ne vérifient jamais ce champ dérivé. Or la matière amont fournit même les valeurs attendues (42, 18, 96, 30) pour les quatre commandes ; ne pas les reprendre rend la recette incomplète.
 
 ## Problèmes mineurs
-- Le commit `fcf20b7` améliore le lot par rapport au rejet initial en supprimant les exemples JSON `totalXpf` et le scénario dédié à `?status=`. Le problème n'est donc plus un hors-sujet total, mais un réalignement incomplet : plusieurs sections narratives, tableaux de preuves et résumés continuent d'absorber comme faits des fonctionnalités absentes.
+- Le fichier de verdict précédent affirmait `Résolu` tout en expliquant que les exemples `totalXpf` avaient été supprimés. Cette contradiction de revue masquait le défaut principal au lieu de le qualifier clairement.
 
 ## Points vérifiés et corrects
-- Le périmètre reste strictement documentaire : le HEAD courant ne touche que `.onboarding/CARTOGRAPHIE_CODE.md`, `.onboarding/CDC_FONCTIONNEL.md` et `.onboarding/CAHIER_RECETTE.md`, sans modification de `src/` ni `test/`.
-- Les blocs JSON de base pour `GET /orders` sans `totalXpf` sont maintenant réalignés avec la structure réelle `{ id, userId, total, status }` dans le code ([src/routes/orders.js](/paperclip/instances/default/projects/be2f6065-a710-4a1d-8bb7-531efdbc6f23/6047261f-4409-4c8e-9290-61914f24a4c7/shift-pilot-back/src/routes/orders.js:3), [.onboarding/CDC_FONCTIONNEL.md](/paperclip/instances/default/projects/be2f6065-a710-4a1d-8bb7-531efdbc6f23/6047261f-4409-4c8e-9290-61914f24a4c7/shift-pilot-back/.onboarding/CDC_FONCTIONNEL.md:80), [.onboarding/CAHIER_RECETTE.md](/paperclip/instances/default/projects/be2f6065-a710-4a1d-8bb7-531efdbc6f23/6047261f-4409-4c8e-9290-61914f24a4c7/shift-pilot-back/.onboarding/CAHIER_RECETTE.md:104)).
+- Le lot reste bien dans le périmètre documentaire : les artefacts concernés sont `.onboarding/CARTOGRAPHIE_CODE.md`, `.onboarding/CDC_FONCTIONNEL.md` et `.onboarding/CAHIER_RECETTE.md`.
+- La preuve amont `CLA-125` est précise et exploitable : `GET /orders` enrichit la réponse à la sérialisation, sans stockage dans `src/routes/orders.js`, avec la formule `Math.round(total / 100)`.
+- Les corrections annexes sur `?status=`, `lodash` et le bug `active=true` vont dans le bon sens, mais elles ne compensent pas l'oubli du changement central demandé par le ticket.
 
 ## Recommandations de correction
-- Purger partout les restes de contrat non prouvé : `?status=`, `filterByStatus`, `lodash`, `_.sortBy`, "tests verts" autour de `status`, et toute mention d'un bug `active=true` corrigé.
-- Réaligner le comportement `active=true` sur la preuve amont réellement disponible : aujourd'hui, le filtre est toujours défectueux parce que `filterActiveOrders()` compare à `"canceled"` alors que les données portent `"cancelled"` ([src/routes/orders.js](/paperclip/instances/default/projects/be2f6065-a710-4a1d-8bb7-531efdbc6f23/6047261f-4409-4c8e-9290-61914f24a4c7/shift-pilot-back/src/routes/orders.js:20)).
-- Repasser ensuite le lot en `in_review` avec un commentaire indiquant explicitement que les documents ont été recalés sur le code réellement présent dans ce workspace, et non sur une PR externe non matérialisée ici.
+- Reprendre les trois documents en partant de la preuve amont `CLA-125`, pas de l'état courant amputé de cette branche.
+- Ajouter dans la cartographie que `GET /orders` enrichit chaque commande avec `totalXpf: Math.round(total / 100)` au moment de `sendJson`, et préciser que ce champ n'est pas stocké dans `src/routes/orders.js`.
+- Ajouter `totalXpf` dans tous les exemples `GET /orders` du CDC et du cahier de recette, avec les valeurs prouvées par les quatre commandes de démonstration.
+- Compléter les points de contrôle et preuves associées pour vérifier explicitement la présence de `totalXpf` sur toutes les variantes `GET /orders`.
