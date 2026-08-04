@@ -18,10 +18,10 @@
 
 **Client HTTP externe** (humain ou système)
 - Peut : lister tous les utilisateurs (`GET /users`)
-- Peut : lister toutes les commandes (`GET /orders`), avec montants en XPF
+- Peut : lister toutes les commandes (`GET /orders`), montant en XPF
 - Peut : filtrer les commandes par utilisateur (`GET /orders?userId=N`)
-- Peut : filtrer les commandes actives (`GET /orders?active=true` — fonctionne correctement)
-- Peut : filtrer les commandes par statut exact (`GET /orders?status=paid|cancelled` — nouveau, CLA-195)
+- **Peut (bug volontaire)** : filtrer les commandes actives (`GET /orders?active=true` — **NE FONCTIONNE PAS** car `filterActiveOrders()` compare à `"canceled"` au lieu de `"cancelled"`)
+- **Interdit** : filtrer les commandes par statut exact (`GET /orders?status=...` — paramètre `status` n'existe pas)
 - **Interdit** : créer, modifier, supprimer (aucune route POST/PUT/PATCH/DELETE)
 - **Interdit** : accéder à un utilisateur par id (helper existe, route absente)
 - **Interdit** : vérifier son autorisation (prédicat `isAdmin` existe, aucun contrôle d'accès câblé)
@@ -77,7 +77,7 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 4. `activeOnly === false` → pas d'appel à `filterActiveOrders` (la réponse retournée directement `src/server.js:25`)
 5. Réponse : statut 200 + tableau JSON
 
-**Résultat** : 4 commandes (toutes, incluses les annulées), montants en XPF
+**Résultat** : 4 commandes (toutes, incluses les annulées)
 ```json
 [
   { "id": 101, "userId": 2, "total": 42, "status": "paid" },
@@ -87,8 +87,6 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 ]
 ```
 
-**Détails du champ `total`** : Depuis CLA-195, `total` est stocké directement en XPF (plus de calcul `Math.round(total/100)` ni d'enrichissement `totalXpf` calculé).
-
 #### Variante 2b — Commandes d'un utilisateur spécifique
 
 **Requête** : `GET /orders?userId=2`
@@ -97,11 +95,11 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 1. Dispatcher teste condition `GET /orders` → vrai (`src/server.js:18`)
 2. Lecture `userId = "2"` → conversion `Number("2")` = 2 (`src/server.js:19,22`)
 3. `activeOnly = false` (pas de paramètre `active`)
-4. Appel `getOrdersByUser(2)` → filtre par `order.userId === 2` (`src/routes/orders.js:16-18`)
+4. Appel `getOrdersByUser(2)` → filtre par `order.userId === 2` (`src/routes/orders.js:14-16`)
 5. Résultat : 2 commandes (101 et 102, toutes de Teiki)
 6. Pas d'appel `filterActiveOrders` → tableau retourné tel quel
 
-**Résultat** : commandes de l'utilisateur 2 (y compris annulée), montants en XPF
+**Résultat** : commandes de l'utilisateur 2 (y compris annulée)
 ```json
 [
   { "id": 101, "userId": 2, "total": 42, "status": "paid" },
@@ -109,26 +107,25 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 ]
 ```
 
-**Montants** : `total` est directement en XPF.
-
-#### Variante 2c — Filtrer commandes actives d'un utilisateur
+#### Variante 2c — Tentative de filtrer commandes actives d'un utilisateur
 
 **Requête** : `GET /orders?userId=2&active=true`
 
 **Déroulement**
 1. Dispatcher teste condition `GET /orders` → vrai
-2. Lecture `userId = 2`, `activeOnly = true` (`src/server.js:28-29`)
+2. Lecture `userId = 2`, `activeOnly = true` (`src/server.js:19-20`)
 3. Appel `getOrdersByUser(2)` → retourne [101, 102]
-4. `activeOnly === true` ET `normalizedStatus === null` → **appel `filterActiveOrders([101, 102])`** (`src/server.js:37`)
-5. `filterActiveOrders` compare `order.status !== "cancelled"` (orthographe britannique correcte) (`src/routes/orders.js:20-22`)
-   - Commande 101 : `"paid" !== "cancelled"` → true, passe
-   - Commande 102 : `"cancelled" !== "cancelled"` → false, **EXCLUE**
-6. Résultat retourné : [101]
+4. `activeOnly === true` → **appel `filterActiveOrders([101, 102])`** (`src/server.js:23`)
+5. `filterActiveOrders` compare `order.status !== "canceled"` (orthographe US — BUG) (`src/routes/orders.js:23`)
+   - Commande 101 : `"paid" !== "canceled"` → true, passe
+   - Commande 102 : `"cancelled" !== "canceled"` → true, **PASSE AUSSI** (orthographe ne match pas)
+6. Résultat retourné : [101, 102]
 
-**Ce qui est reçu** : **uniquement la commande payée** — **comportement correct**. Le bug du filtre a été corrigé en CLA-195. Montants en XPF (pas de `totalXpf` calculé).
+**Ce qui est reçu** : **les deux commandes incluant l'annulée** — **comportement incorrect**. Le bug n'a pas été corrigé.
 ```json
 [
-  { "id": 101, "userId": 2, "total": 42, "status": "paid" }
+  { "id": 101, "userId": 2, "total": 42, "status": "paid" },
+  { "id": 102, "userId": 2, "total": 18, "status": "cancelled" }
 ]
 ```
 
@@ -138,15 +135,17 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 
 **Déroulement**
 1. Dispatcher teste `GET /orders` → vrai
-2. Lecture `userId = null`, `activeOnly = true` (`src/server.js:28-29`)
-3. `listOrders()` → [101, 102, 103, 104] (tri par lodash)
-4. `filterActiveOrders([...])` → exclut 102 et 104 (`status === "cancelled"`)
+2. Lecture `userId = null`, `activeOnly = true`
+3. `listOrders()` → [101, 102, 103, 104] (tri par id)
+4. `filterActiveOrders([...])` → exclut 102 et 104 (`"cancelled"`)
 
-**Résultat reçu** : **2 commandes payées uniquement** — **COMPORTEMENT CORRECT**. Le bug du filtre actif a été corrigé en CLA-195. Montants en XPF.
+**Résultat reçu** : **4 commandes (y compris les annulées)** — **COMPORTEMENT INCORRECT** car `filterActiveOrders()` compare `order.status !== "canceled"` (orthographe US) alors que les données portent `"cancelled"` (orthographe GB). Aucune commande n'est exclue. Bug volontaire du pilote.
 ```json
 [
   { "id": 101, "userId": 2, "total": 42, "status": "paid" },
-  { "id": 103, "userId": 3, "total": 96, "status": "paid" }
+  { "id": 102, "userId": 2, "total": 18, "status": "cancelled" },
+  { "id": 103, "userId": 3, "total": 96, "status": "paid" },
+  { "id": 104, "userId": 3, "total": 30, "status": "cancelled" }
 ]
 ```
 
@@ -172,10 +171,10 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 
 ### Commandes
 
-1. **Filtre `userId` (fonctionnel)** : `GET /orders?userId=N` filtre par égalité stricte (`order.userId === N`). Paramètre converti en nombre entier avant comparaison. Si `userId` n'existe pas (ex. `userId=99`), retour 200 + `[]` (liste vide, pas erreur 404) — `src/routes/orders.js:16-18`.
-2. **Filtre `active` (fonctionnel depuis CLA-195)** : `GET /orders?active=true` filtre les commandes actives. `filterActiveOrders()` exclut le statut `"cancelled"` (orthographe britannique). Fonctionne correctement — `src/routes/orders.js:20-22`, `src/server.js:37`.
-3. **Paramètre `status` (nouveau, CLA-195)** : `GET /orders?status=paid|cancelled` filtre par statut exact. Le dispatcher lit ce paramètre et applique `filterByStatus()`. Priorité sur le filtre `active` si les deux sont fournis — `src/server.js:30,38`, `src/routes/orders.js:24-26`.
-4. **Statuts de commande** : enum implicite = {`"paid"`, `"cancelled"`} (orthographe britannique, double `l`) — `src/routes/orders.js:5-10`.
+1. **Filtre `userId` (fonctionnel)** : `GET /orders?userId=N` filtre par égalité stricte (`order.userId === N`). Paramètre converti en nombre entier avant comparaison. Si `userId` n'existe pas (ex. `userId=99`), retour 200 + `[]` (liste vide, pas erreur 404) — `src/routes/orders.js:14-16`.
+2. **Filtre `active` (BUG VOLONTAIRE — NE FONCTIONNE PAS)** : `GET /orders?active=true` **ne filtre rien** car `filterActiveOrders()` compare `order.status !== "canceled"` (orthographe US) au lieu de `"cancelled"` (données en orthographe GB). La condition ne match jamais. Toutes les commandes, y compris les annulées, passent à travers — `src/routes/orders.js:22-24`, `src/server.js:23`.
+3. **Paramètre `status` (n'existe pas)** : `GET /orders?status=paid` ne fonctionne pas car le dispatcher ne lit pas ce paramètre. Seuls `userId` et `active` sont interprétés — `src/server.js:19-20`.
+4. **Statuts de commande** : enum implicite = {`"paid"`, `"cancelled"`} (orthographe britannique, double `l`) — `src/routes/orders.js:4-8`.
 5. **Méthode GET exclusive** : seul `GET` répond sur `/orders`. Autres méthodes → 404.
 6. **Lien utilisateur (non enforced)** : chaque commande lie un `userId` à un utilisateur (données cohérentes), mais aucune vérification ne force cette contrainte dans le code. Un `userId` invalide ne génère pas d'erreur, juste une liste vide.
 
@@ -199,10 +198,10 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 **Emplacement** : `src/routes/orders.js:3-8` (tableau `orders`)
 
 **Enregistrements** :
-- ID 101, userId 2 (Teiki), total 42 XPF, paid
-- ID 102, userId 2 (Teiki), total 18 XPF, cancelled
-- ID 103, userId 3 (Manoa), total 96 XPF, paid
-- ID 104, userId 3 (Manoa), total 30 XPF, cancelled
+- ID 101, userId 2 (Teiki), total 4200, paid
+- ID 102, userId 2 (Teiki), total 1800, cancelled
+- ID 103, userId 3 (Manoa), total 9600, paid
+- ID 104, userId 3 (Manoa), total 3000, cancelled
 
 **Persistance** : aucune. Redémarrage = réinitialisation.
 
@@ -219,6 +218,8 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 - **Persistance** : pas de base de données, données intégralement en RAM
 - **Validation d'entrée** : les paramètres de requête ne sont pas validés (ex. `userId=abc` → `NaN` silencieux)
 - **Gestion d'erreur** : aucun `try/catch` global, pas de codes d'erreur HTTP variés (que 200 et 404)
+- **Filtre `status`** : non implémenté (paramètre n'est pas lu par le dispatcher)
+- **Filtre `active=true`** : **bug volontaire non corrigé** — compare orthographe US vs GB, ne filtre jamais
 
 ### Inachevé (code présent, non câblé)
 
@@ -227,17 +228,18 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 
 ### Indéterminable (intention non exposée)
 
+- Schéma canonique d'orthographe pour statut annulé : `"cancelled"` (données) ou `"canceled"` (bug) ?
 - Intention du `role` : est-ce le début d'un système d'autorisation à câbler, ou du bruit de démo ?
 - Cas `userId` inexistant : faut-il 404 ou 200 + [] ?
 
 ## Preuves
 
-**Domaine utilisateurs** : src/routes/users.js:3-21, src/server.js:4, src/server.js:16-17
+**Domaine utilisateurs** : src/routes/users.js:3-21, src/server.js:3, src/server.js:14-16
 
-**Domaine commandes** : src/routes/orders.js:1-32, src/server.js:6, src/server.js:27-41
+**Domaine commandes** : src/routes/orders.js:3-26, src/server.js:4, src/server.js:18-26
 
-**API HTTP & routage** : src/server.js:1-60
+**API HTTP & routage** : src/server.js:1-38
 
-**Modèle de données** : src/routes/users.js:3-7, src/routes/orders.js:5-10
+**Modèle de données** : src/routes/users.js:3-7, src/routes/orders.js:3-8
 
-**Filtres commandes** : src/routes/orders.js:16-26, src/server.js:28-38, test/orders.test.js (tests d'acceptation du comportement des filtres)
+**Filtres commandes** : src/routes/orders.js:14-24, src/server.js:19-23, test/orders.test.js (test volontaire du bug filterActiveOrders)
