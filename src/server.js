@@ -1,7 +1,9 @@
 const http = require("node:http");
 const { URL } = require("node:url");
+
 const { listUsers, getUserById } = require("./routes/users");
-const { listOrders, getOrdersByUser, filterActiveOrders, filterByStatus } = require("./routes/orders");
+
+const { listOrders, getOrdersByUser, filterActiveOrders, getOrderById, filterByStatus } = require("./routes/orders");
 
 function sendJson(res, status, body) {
   res.writeHead(status, { "Content-Type": "application/json" });
@@ -13,6 +15,13 @@ const server = http.createServer((req, res) => {
 
   if (url.pathname === "/users" && req.method === "GET") {
     return sendJson(res, 200, listUsers());
+  }
+
+  const userByIdMatch = req.method === "GET" && /^\/users\/(\d+)$/.exec(url.pathname);
+  if (userByIdMatch) {
+    const user = getUserById(Number(userByIdMatch[1]));
+    if (user === null) return sendJson(res, 404, { error: "Not found" });
+    return sendJson(res, 200, user);
   }
 
   if (url.pathname === "/orders" && req.method === "GET") {
@@ -28,7 +37,15 @@ const server = http.createServer((req, res) => {
     if (activeOnly && normalizedStatus === null) result = filterActiveOrders(result);
     if (normalizedStatus !== null) result = filterByStatus(result, normalizedStatus);
 
-    return sendJson(res, 200, result);
+    return sendJson(res, 200, result.map(o => ({ ...o, totalXpf: Math.round(o.total / 100) })));
+  }
+
+  const orderByIdMatch = /^\/orders\/[^/]+$/.exec(url.pathname);
+  if (req.method === "GET" && orderByIdMatch) {
+    const id = parseInt(url.pathname.slice("/orders/".length), 10);
+    const order = getOrderById(id);
+    if (order) return sendJson(res, 200, order);
+    return sendJson(res, 404, { error: "Not found" });
   }
 
   sendJson(res, 404, { error: "Not found" });

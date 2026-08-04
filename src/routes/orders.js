@@ -25,4 +25,8 @@ function filterByStatus(orderList, status) {
   return orderList.filter((order) => order.status === status);
 }
 
-module.exports = { listOrders, getOrdersByUser, filterActiveOrders, filterByStatus };
+function getOrderById(id) {
+  return orders.find(order => order.id === id) || null;
+}
+
+module.exports = { listOrders, getOrdersByUser, filterActiveOrders, getOrderById, filterByStatus };
