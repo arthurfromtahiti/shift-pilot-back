@@ -108,25 +108,29 @@ Body (JSON) :
     "id": 101,
     "userId": 2,
     "total": 4200,
-    "status": "paid"
+    "status": "paid",
+    "totalXpf": 42
   },
   {
     "id": 102,
     "userId": 2,
     "total": 1800,
-    "status": "cancelled"
+    "status": "cancelled",
+    "totalXpf": 18
   },
   {
     "id": 103,
     "userId": 3,
     "total": 9600,
-    "status": "paid"
+    "status": "paid",
+    "totalXpf": 96
   },
   {
     "id": 104,
     "userId": 3,
     "total": 3000,
-    "status": "cancelled"
+    "status": "cancelled",
+    "totalXpf": 30
   }
 ]
 ```
@@ -175,13 +179,15 @@ Body (JSON) :
     "id": 101,
     "userId": 2,
     "total": 4200,
-    "status": "paid"
+    "status": "paid",
+    "totalXpf": 42
   },
   {
     "id": 102,
     "userId": 2,
     "total": 1800,
-    "status": "cancelled"
+    "status": "cancelled",
+    "totalXpf": 18
   }
 ]
 ```
@@ -190,6 +196,7 @@ Body (JSON) :
 - ✅ Statut 200
 - ✅ Array JSON de 2 objets (uniquement userId=2)
 - ✅ Les deux commandes de Teiki retournées
+- ✅ Chaque commande porte le champ `totalXpf`
 
 ### Variante 3b — userId=3 (Manoa, 2 commandes)
 
@@ -283,8 +290,8 @@ Status : **200 OK**
 Body : 2 commandes payées uniquement
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid" },
-  { "id": 103, "userId": 3, "total": 9600, "status": "paid" }
+  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 },
+  { "id": 103, "userId": 3, "total": 9600, "status": "paid", "totalXpf": 96 }
 ]
 ```
 
@@ -305,7 +312,7 @@ Status : **200 OK**
 Body : 1 commande payée de Teiki
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid" }
+  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 }
 ]
 ```
 
@@ -444,11 +451,18 @@ GET /orders?active=true&status=cancelled HTTP/1.1
 Status : **200 OK**
 
 Body : 2 commandes annulées (102, 104) — `?status=` prend la main sur `?active=true`
+```json
+[
+  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "totalXpf": 18 },
+  { "id": 104, "userId": 3, "total": 3000, "status": "cancelled", "totalXpf": 30 }
+]
+```
 
 **Points de contrôle**
 - ✅ `?status=cancelled` est appliqué (filtre par statut exact)
 - ✅ `?active=true` ignoré quand `?status=` est présent
 - ✅ Résultat : commandes 102 et 104
+- ✅ Chaque commande porte le champ `totalXpf`
 
 **Preuve du code**
 - `src/server.js:26-29` : composition des filtres, status prioritaire

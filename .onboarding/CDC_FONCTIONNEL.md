@@ -80,10 +80,10 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 **Résultat** : 4 commandes (toutes, incluses les annulées)
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid" },
-  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled" },
-  { "id": 103, "userId": 3, "total": 9600, "status": "paid" },
-  { "id": 104, "userId": 3, "total": 3000, "status": "cancelled" }
+  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 },
+  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "totalXpf": 18 },
+  { "id": 103, "userId": 3, "total": 9600, "status": "paid", "totalXpf": 96 },
+  { "id": 104, "userId": 3, "total": 3000, "status": "cancelled", "totalXpf": 30 }
 ]
 ```
 
@@ -102,8 +102,8 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 **Résultat** : commandes de l'utilisateur 2 (y compris annulée)
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid" },
-  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled" }
+  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 },
+  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "totalXpf": 18 }
 ]
 ```
 
@@ -200,10 +200,10 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 **Emplacement** : `src/routes/orders.js:3-8` (tableau `orders`)
 
 **Enregistrements** :
-- ID 101, userId 2 (Teiki), total 4200, paid
-- ID 102, userId 2 (Teiki), total 1800, cancelled
-- ID 103, userId 3 (Manoa), total 9600, paid
-- ID 104, userId 3 (Manoa), total 3000, cancelled
+- ID 101, userId 2 (Teiki), total 4200, paid, totalXpf 42
+- ID 102, userId 2 (Teiki), total 1800, cancelled, totalXpf 18
+- ID 103, userId 3 (Manoa), total 9600, paid, totalXpf 96
+- ID 104, userId 3 (Manoa), total 3000, cancelled, totalXpf 30
 
 **Persistance** : aucune. Redémarrage = réinitialisation.
 
