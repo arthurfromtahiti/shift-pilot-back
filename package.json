@@ -12,6 +12,9 @@
   "dependencies": {
     "lodash": "^4.18.1"
   },
+  "engines": {
+    "node": ">=18"
+  },
   "license": "UNLICENSED",
   "private": true,
   "devDependencies": {
