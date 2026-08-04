@@ -148,8 +148,12 @@ Body (JSON) :
 - ✅ Requête `GET /orders?active=false` (booléen incorrect) → 4 commandes (paramètre ignoré)
 - ✅ Requête `DELETE /orders` → 404
 
+**Points de contrôle complémentaires**
+- ✅ Tous les objets enrichis avec `totalXpf = arrondi(total / 100)`
+- ✅ Exemple : total 4200 → totalXpf 42 ; total 1800 → totalXpf 18
+
 **Preuve du code**
-- `src/server.js:18-26` : routing vers commandes sans filtre → `listOrders()`
+- `src/server.js:18-26` : routing vers commandes sans filtre → `listOrders()` → enrichissement `totalXpf` ligne 25
 - `src/routes/orders.js:10-12` : `listOrders()` retourne tableau complet
 - `src/routes/orders.js:3-8` : données
 
@@ -197,7 +201,7 @@ Body (JSON) :
 - ✅ Statut 200
 - ✅ Array JSON de 2 objets (uniquement userId=2)
 - ✅ Les deux commandes de Teiki retournées
-- ✅ Chaque objet enrichi avec `totalXpf` correct
+- ✅ Chaque objet enrichi avec `totalXpf` correct (101 → 42, 102 → 18)
 
 ### Variante 3b — userId=3 (Manoa, 2 commandes)
 
@@ -310,7 +314,8 @@ Status : **200 OK**
 - ⚠️ Statut 200 (correct)
 - ❌ Commandes annulées (102, 104) **PRÉSENTES** dans le résultat — **INCORRECT**
 - ❌ Le filtre ne fonctionne pas : `filterActiveOrders()` compare à `"canceled"` (orthographe US) alors que les données portent `"cancelled"` (orthographe GB)
-- ⚠️ Preuves : `src/routes/orders.js:23` (bug de comparaison orthographique)
+- ✅ Tous les 4 objets enrichis avec `totalXpf` correct (42, 18, 96, 30)
+- ⚠️ Preuves : `src/routes/orders.js:23` (bug de comparaison orthographique), `src/server.js:25` (enrichissement toujours appliqué)
 
 ### Variante 4b — active=true avec userId=2 (BUG OBSERVABLE)
 
@@ -340,6 +345,7 @@ Status : **200 OK**
 - ✅ Filtre `userId` appliqué correctement en premier → [101, 102]
 - ❌ Filtre `active=true` **NE filtre rien** — commande 102 (annulée) **PASSE À TRAVERS**
 - ❌ Le bug orthographique s'applique : `"cancelled" !== "canceled"` → true, l'objet passe
+- ✅ Les 2 objets retournés enrichis avec `totalXpf` (42, 18)
 
 ### Variante 4c — active=false (paramètre ignoré)
 
@@ -462,6 +468,7 @@ Body : 1 commande payée de Teiki (101)
 **Points de contrôle**
 - ✅ Composition : userId appliqué en premier, active ensuite
 - ✅ Commande 102 (annulée) exclue correctement
+- ✅ L'objet retourné enrichi avec `totalXpf` (42)
 
 **Preuve du code**
 - `src/server.js:19-23` : composition des filtres, userId puis active

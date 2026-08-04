@@ -87,6 +87,8 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 ]
 ```
 
+**Détails du calcul `totalXpf`** : Chaque objet commande est enrichi à `src/server.js:25` via `.map(o => ({ ...o, totalXpf: Math.round(o.total / 100) }))`. Cet enrichissement applique à toutes les variantes (sans filtre, avec userId, avec active).
+
 #### Variante 2b — Commandes d'un utilisateur spécifique
 
 **Requête** : `GET /orders?userId=2`
@@ -106,6 +108,8 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
   { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "totalXpf": 18 }
 ]
 ```
+
+**Enrichissement appliqué** : chaque objet porte `totalXpf = Math.round(total / 100)`.
 
 #### Variante 2c — Tentative de filtrer commandes actives d'un utilisateur
 
@@ -129,6 +133,8 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 ]
 ```
 
+**Enrichissement** : malgré le bug du filtre, `totalXpf` est bien appliqué à tous les objets retournés.
+
 #### Variante 2d — Commandes actives globales
 
 **Requête** : `GET /orders?active=true`
@@ -148,6 +154,8 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
   { "id": 104, "userId": 3, "total": 3000, "status": "cancelled", "totalXpf": 30 }
 ]
 ```
+
+**Enrichissement** : `totalXpf` s'applique à tous les objets retournés, indépendamment du bug du filtre.
 
 ### Parcours 3 — Tentative d'accès refusé ou mal formé
 
