@@ -16,6 +16,13 @@ const server = http.createServer((req, res) => {
     return sendJson(res, 200, listUsers());
   }
 
+  const userByIdMatch = req.method === "GET" && /^\/users\/(\d+)$/.exec(url.pathname);
+  if (userByIdMatch) {
+    const user = getUserById(Number(userByIdMatch[1]));
+    if (user === null) return sendJson(res, 404, { error: "Not found" });
+    return sendJson(res, 200, user);
+  }
+
   if (url.pathname === "/orders" && req.method === "GET") {
     const userIdParam = url.searchParams.get("userId");
     const activeOnly = url.searchParams.get("active") === "true";
