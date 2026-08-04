@@ -67,7 +67,7 @@ shift-pilot-back/
 | `getOrdersByUser(userId)` | Function export | 14-16 | Filtre par `order.userId === userId`. Fonctionne correctement. |
 | `filterActiveOrders(orderList)` | Function export | 22-24 | **Bug volontaire** : compare `order.status !== "canceled"` (orthographe américaine) alors que les données portent `"cancelled"` (britannique). La fonction ne filtre jamais rien et retourne toujours la liste intacte. |
 | `getOrderById(id)` | Function export | 26-28 | Lookup par ID via `find()`. Importée dans server.js:4 mais jamais appelée (route `/orders/:id` n'existe pas). |
-| Route HTTP | GET /orders | server.js:18-26 | `GET /orders` avec params optionnels `userId`, `active` → JSON 200 |
+| Route HTTP | GET /orders | server.js:18-26 | `GET /orders` avec params optionnels `userId`, `active` → JSON 200. **Enrichissement** : chaque objet de la réponse reçoit un champ additionnel `totalXpf: Math.round(total / 100)` (arrondi du total en centimes converti en unités) appliqué lors de la sérialisation (server.js ligne 25, avant `sendJson`). Exemple : commande de 4200 centimes → totalXpf **42**. |
 
 **Composition des filtres** (`src/server.js:19-23`)
 ```
