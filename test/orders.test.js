@@ -93,6 +93,31 @@ test("GET /orders?active=true&status=cancelled returns cancelled orders (status 
   );
 });
 
+// CLA-195 — GET /orders must expose total in XPF and must not expose totalXpf
+test("GET /orders returns total in XPF and no totalXpf field", async () => {
+  const result = await get("/orders");
+  assert.deepEqual(
+    result.map((o) => o.total),
+    [42, 18, 96, 30],
+    "GET /orders must return total in XPF (42, 18, 96, 30)",
+  );
+  assert.ok(
+    result.every((o) => !("totalXpf" in o)),
+    "GET /orders must not expose a totalXpf field",
+  );
+});
+
+// CLA-195 — total must be stored in XPF, not centimes
+test("listOrders() returns total in XPF (not centimes)", () => {
+  const { listOrders } = require("../src/routes/orders");
+  const result = listOrders();
+  assert.deepEqual(
+    result.map((o) => o.total),
+    [42, 18, 96, 30],
+    "totals must be 42, 18, 96, 30 XPF — not 4200, 1800, 9600, 3000 centimes",
+  );
+});
+
 test("filterByStatus filters orders by exact status match", () => {
   const sample = [
     { id: 1, status: "paid" },
