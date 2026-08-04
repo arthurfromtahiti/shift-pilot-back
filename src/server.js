@@ -3,7 +3,7 @@ const { URL } = require("node:url");
 
 const { listUsers, getUserById } = require("./routes/users");
 
-const { listOrders, getOrdersByUser, filterActiveOrders, getOrderById, filterByStatus } = require("./routes/orders");
+const { listOrders, getOrdersByUser, filterActiveOrders, filterByStatus } = require("./routes/orders");
 
 function sendJson(res, status, body) {
   res.writeHead(status, { "Content-Type": "application/json" });
@@ -37,12 +37,9 @@ const server = http.createServer((req, res) => {
     if (activeOnly && normalizedStatus === null) result = filterActiveOrders(result);
     if (normalizedStatus !== null) result = filterByStatus(result, normalizedStatus);
 
-    return sendJson(res, 200, result.map(o => ({ ...o, totalXpf: Math.round(o.total / 100) })));
-  }
-
     return sendJson(res, 200, result.map(o => {
       const user = getUserById(o.userId);
-      return { ...o, clientName: user ? user.name : null };
+      return { ...o, totalXpf: Math.round(o.total / 100), clientName: user ? user.name : null };
     }));
   }
 
