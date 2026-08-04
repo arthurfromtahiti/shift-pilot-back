@@ -3,7 +3,7 @@ const { URL } = require("node:url");
 
 const { listUsers, getUserById } = require("./routes/users");
 
-const { listOrders, getOrdersByUser, filterActiveOrders, getOrderById, filterByStatus } = require("./routes/orders");
+const { listOrders, getOrdersByUser, filterActiveOrders, filterByStatus } = require("./routes/orders");
 
 function sendJson(res, status, body) {
   res.writeHead(status, { "Content-Type": "application/json" });
