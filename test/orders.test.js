@@ -118,6 +118,14 @@ test("listOrders() returns total in XPF (not centimes)", () => {
   );
 });
 
+// CLA-187 — GET /orders must expose clientName resolved from userId
+test("GET /orders exposes clientName resolved from each order's userId", async () => {
+  const result = await get("/orders");
+  const byId = Object.fromEntries(result.map((o) => [o.id, o]));
+  assert.equal(byId[101].clientName, "Teiki", "order 101 belongs to user 2 (Teiki)");
+  assert.equal(byId[103].clientName, "Manoa", "order 103 belongs to user 3 (Manoa)");
+});
+
 test("filterByStatus filters orders by exact status match", () => {
   const sample = [
     { id: 1, status: "paid" },

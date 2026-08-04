@@ -37,10 +37,7 @@ const server = http.createServer((req, res) => {
     if (activeOnly && normalizedStatus === null) result = filterActiveOrders(result);
     if (normalizedStatus !== null) result = filterByStatus(result, normalizedStatus);
 
-    return sendJson(res, 200, result);
-  }
-
-    return sendJson(res, 200, result.map(o => {
+    return sendJson(res, 200, result.map((o) => {
       const user = getUserById(o.userId);
       return { ...o, clientName: user ? user.name : null };
     }));
