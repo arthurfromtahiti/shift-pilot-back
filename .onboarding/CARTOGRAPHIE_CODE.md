@@ -67,7 +67,7 @@ shift-pilot-back/
 | `getOrdersByUser(userId)` | Function export | 14-16 | Filtre par `order.userId === userId`. Fonctionne correctement. |
 | `filterActiveOrders(orderList)` | Function export | 22-24 | **Bug volontaire** : compare `order.status !== "canceled"` (orthographe américaine) alors que les données portent `"cancelled"` (britannique). La fonction ne filtre jamais rien et retourne toujours la liste intacte. |
 | `getOrderById(id)` | Function export | 26-28 | Lookup par ID via `find()`. Importée dans server.js:4 mais jamais appelée (route `/orders/:id` n'existe pas). |
-| Route HTTP | GET /orders | server.js:18-26 | `GET /orders` avec params optionnels `userId`, `active` → JSON 200. **Enrichissement** : chaque objet de la réponse reçoit un champ additionnel `totalXpf: Math.round(total / 100)` (arrondi du total en centimes converti en unités) appliqué lors de la sérialisation (server.js ligne 25, avant `sendJson`). Exemple : commande de 4200 centimes → totalXpf **42**. |
+| Route HTTP | GET /orders | server.js:18-26 | `GET /orders` avec params optionnels `userId`, `active` → JSON 200 |
 
 **Composition des filtres** (`src/server.js:19-23`)
 ```
@@ -98,7 +98,7 @@ shift-pilot-back/
 | Dispatcher | if-else block | 11-35 | Parse `req.url`, teste méthode+chemin, délègue ou retourne 404. |
 | `new URL(req.url, ...)` | URL parsing | 12 | Parse relative à `http://${req.headers.host}` — préserve chemin + query string. |
 | Routes GET /users | if-block | 14-16 | Branchement `→ listUsers()`. |
-| Routes GET /orders | if-block | 18-26 | Branchement + orchestration filtres (userId, active). Paramètres optionnels fournis par query string, appliqués en cascade. Retournes les résultats bruts (ligne 25). **C'est ici que la logique métier est composée.** |
+| Routes GET /orders | if-block | 18-26 | Branchement + orchestration filtres (userId, active). Paramètres optionnels fournis par query string, appliqués en cascade. Retourne les commandes sans enrichissement supplémentaire. **C'est ici que la logique métier est composée.** |
 | Fallback 404 | if-block | 34 | Tout ce qui ne match pas → 404 + `{error: "Not found"}`. |
 | `require.main === module` | Conditional | 38-42 | Démarre le serveur uniquement si invoqué directement (pas si importé en test). |
 | `module.exports = server` | Export | 44 | Permet d'importer le serveur en test et de le décorer (ex. faire des requêtes HTTP). |
