@@ -166,15 +166,20 @@ shift-pilot-back/
 - Ajouter une fonction `filterByDate()` ou `filterByAmount()` si le domaine l'exige
 - Câbler `getOrderById()` si une route `GET /orders/:id` est projetée
 
-### 3. `src/routes/users.js:3,17-19` (hotspot secondaire — imports morts)
+### 3. `src/routes/users.js:17-19` (hotspot secondaire — export mort)
 
 **Criticité** : faible. Décision produit requise.
 
-**Options**
-- (a) Câbler route `GET /users/:id` (utiliser `getUserById`)
-- (b) Retirer l'import mort de `server.js:3`
-- (c) Câbler contrôle d'accès (utiliser `isAdmin`)
-- (d) Retirer `isAdmin` exporté
+**État actuel** : `getUserById` est maintenant **utilisée doublement** (CLA-187) : câblée pour GET /users/:id (server.js:22) et pour l'enrichissement `clientName` sur GET /orders (server.js:40-42). `isAdmin` reste un export mort.
+
+**Changements apportés**
+- (a) ✅ Câbler route `GET /users/:id` (utiliser `getUserById`) — FAIT en CLA-187
+- (b) ✅ Câbler enrichissement clientName sur GET /orders — FAIT en CLA-187
+
+**Options restantes**
+- (c) Retirer ou consolider les imports inutilisés (seul `isAdmin` reste mort)
+- (d) Câbler contrôle d'accès (utiliser `isAdmin`)
+- (e) Retirer `isAdmin` exporté
 
 ## Zones de faible confiance
 
