@@ -93,6 +93,17 @@ test("GET /orders?active=true&status=cancelled returns cancelled orders (status 
   );
 });
 
+// CLA-195 — total must be stored in XPF, not centimes
+test("listOrders() returns total in XPF (not centimes)", () => {
+  const { listOrders } = require("../src/routes/orders");
+  const result = listOrders();
+  assert.deepEqual(
+    result.map((o) => o.total),
+    [42, 18, 96, 30],
+    "totals must be 42, 18, 96, 30 XPF — not 4200, 1800, 9600, 3000 centimes",
+  );
+});
+
 test("filterByStatus filters orders by exact status match", () => {
   const sample = [
     { id: 1, status: "paid" },
