@@ -40,12 +40,10 @@ const server = http.createServer((req, res) => {
     return sendJson(res, 200, result.map(o => ({ ...o, totalXpf: Math.round(o.total / 100) })));
   }
 
-  const orderByIdMatch = /^\/orders\/[^/]+$/.exec(url.pathname);
-  if (req.method === "GET" && orderByIdMatch) {
-    const id = parseInt(url.pathname.slice("/orders/".length), 10);
-    const order = getOrderById(id);
-    if (order) return sendJson(res, 200, order);
-    return sendJson(res, 404, { error: "Not found" });
+    return sendJson(res, 200, result.map(o => {
+      const user = getUserById(o.userId);
+      return { ...o, clientName: user ? user.name : null };
+    }));
   }
 
   sendJson(res, 404, { error: "Not found" });
