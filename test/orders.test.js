@@ -126,6 +126,26 @@ test("GET /orders exposes clientName resolved from each order's userId", async (
   assert.equal(byId[103].clientName, "Manoa", "order 103 belongs to user 3 (Manoa)");
 });
 
+// CLA-225 — chaque commande expose createdAt au format ISO 8601
+test("GET /orders retourne createdAt sur chaque commande", async () => {
+  const result = await get("/orders");
+  const ISO_8601 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
+  assert.equal(result.length, 4, "4 commandes attendues");
+  for (const order of result) {
+    assert.ok(
+      typeof order.createdAt === "string" && ISO_8601.test(order.createdAt),
+      `order ${order.id} doit avoir createdAt ISO 8601, reçu : ${order.createdAt}`,
+    );
+  }
+});
+
+test("GET /orders retourne des createdAt tous distincts", async () => {
+  const result = await get("/orders");
+  const dates = result.map((o) => o.createdAt);
+  const unique = new Set(dates);
+  assert.equal(unique.size, dates.length, "les dates createdAt doivent être toutes distinctes");
+});
+
 test("filterByStatus filters orders by exact status match", () => {
   const sample = [
     { id: 1, status: "paid" },
