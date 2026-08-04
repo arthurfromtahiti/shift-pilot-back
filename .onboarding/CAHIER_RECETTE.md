@@ -107,30 +107,26 @@ Body (JSON) :
   {
     "id": 101,
     "userId": 2,
-    "total": 4200,
-    "status": "paid",
-    "totalXpf": 42
+    "total": 42,
+    "status": "paid"
   },
   {
     "id": 102,
     "userId": 2,
-    "total": 1800,
-    "status": "cancelled",
-    "totalXpf": 18
+    "total": 18,
+    "status": "cancelled"
   },
   {
     "id": 103,
     "userId": 3,
-    "total": 9600,
-    "status": "paid",
-    "totalXpf": 96
+    "total": 96,
+    "status": "paid"
   },
   {
     "id": 104,
     "userId": 3,
-    "total": 3000,
-    "status": "cancelled",
-    "totalXpf": 30
+    "total": 30,
+    "status": "cancelled"
   }
 ]
 ```
@@ -139,7 +135,7 @@ Body (JSON) :
 - ✅ Statut 200
 - ✅ Array JSON de 4 objets
 - ✅ Deux commandes ont `status: "paid"`, deux ont `status: "cancelled"`
-- ✅ Chaque objet enrichi avec `totalXpf` = arrondi du montant en centimes
+- ✅ Chaque objet porte `total` en XPF (42, 18, 96, 30)
 - ✅ `userId` lie à utilisateurs existants (2=Teiki, 3=Manoa)
 - ✅ Commandes annulées présentes dans le résultat (pas filtré)
 
@@ -148,14 +144,10 @@ Body (JSON) :
 - ✅ Requête `GET /orders?active=false` (booléen incorrect) → 4 commandes (paramètre ignoré)
 - ✅ Requête `DELETE /orders` → 404
 
-**Points de contrôle complémentaires**
-- ✅ Tous les objets enrichis avec `totalXpf = arrondi(total / 100)`
-- ✅ Exemple : total 4200 → totalXpf 42 ; total 1800 → totalXpf 18
-
 **Preuve du code**
-- `src/server.js:18-26` : routing vers commandes sans filtre → `listOrders()` → enrichissement `totalXpf` ligne 25
-- `src/routes/orders.js:10-12` : `listOrders()` retourne tableau complet
-- `src/routes/orders.js:3-8` : données
+- `src/server.js:27-41` : routing vers commandes sans filtre → `listOrders()`
+- `src/routes/orders.js:12-14` : `listOrders()` retourne tableau complet
+- `src/routes/orders.js:5-10` : données
 
 ---
 
@@ -183,16 +175,14 @@ Body (JSON) :
   {
     "id": 101,
     "userId": 2,
-    "total": 4200,
-    "status": "paid",
-    "totalXpf": 42
+    "total": 42,
+    "status": "paid"
   },
   {
     "id": 102,
     "userId": 2,
-    "total": 1800,
-    "status": "cancelled",
-    "totalXpf": 18
+    "total": 18,
+    "status": "cancelled"
   }
 ]
 ```
@@ -201,7 +191,7 @@ Body (JSON) :
 - ✅ Statut 200
 - ✅ Array JSON de 2 objets (uniquement userId=2)
 - ✅ Les deux commandes de Teiki retournées
-- ✅ Chaque objet enrichi avec `totalXpf` correct (101 → 42, 102 → 18)
+- ✅ Chaque objet porte `total` en XPF (42, 18)
 
 ### Variante 3b — userId=3 (Manoa, 2 commandes)
 
@@ -292,21 +282,21 @@ GET /orders?active=true HTTP/1.1
 
 Status : **200 OK**
 
-**Body attendu (si le filtre fonctionnait)** : 2 commandes payées uniquement, enrichies avec `totalXpf`
+**Body attendu (si le filtre fonctionnait)** : 2 commandes payées uniquement
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 },
-  { "id": 103, "userId": 3, "total": 9600, "status": "paid", "totalXpf": 96 }
+  { "id": 101, "userId": 2, "total": 42, "status": "paid" },
+  { "id": 103, "userId": 3, "total": 96, "status": "paid" }
 ]
 ```
 
-**Body réellement reçu (BUG OBSERVABLE)** : **4 commandes incluant les annulées**, enrichies avec `totalXpf`
+**Body réellement reçu (BUG OBSERVABLE)** : **4 commandes incluant les annulées**
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 },
-  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "totalXpf": 18 },
-  { "id": 103, "userId": 3, "total": 9600, "status": "paid", "totalXpf": 96 },
-  { "id": 104, "userId": 3, "total": 3000, "status": "cancelled", "totalXpf": 30 }
+  { "id": 101, "userId": 2, "total": 42, "status": "paid" },
+  { "id": 102, "userId": 2, "total": 18, "status": "cancelled" },
+  { "id": 103, "userId": 3, "total": 96, "status": "paid" },
+  { "id": 104, "userId": 3, "total": 30, "status": "cancelled" }
 ]
 ```
 
@@ -314,8 +304,7 @@ Status : **200 OK**
 - ⚠️ Statut 200 (correct)
 - ❌ Commandes annulées (102, 104) **PRÉSENTES** dans le résultat — **INCORRECT**
 - ❌ Le filtre ne fonctionne pas : `filterActiveOrders()` compare à `"canceled"` (orthographe US) alors que les données portent `"cancelled"` (orthographe GB)
-- ✅ Tous les 4 objets enrichis avec `totalXpf` correct (42, 18, 96, 30)
-- ⚠️ Preuves : `src/routes/orders.js:23` (bug de comparaison orthographique), `src/server.js:25` (enrichissement toujours appliqué)
+- ⚠️ Preuves : `src/routes/orders.js:21` (bug de comparaison orthographique)
 
 ### Variante 4b — active=true avec userId=2 (BUG OBSERVABLE)
 
@@ -326,18 +315,18 @@ GET /orders?userId=2&active=true HTTP/1.1
 
 Status : **200 OK**
 
-**Body attendu (si le filtre fonctionnait)** : 1 commande payée de Teiki, enrichie avec `totalXpf`
+**Body attendu (si le filtre fonctionnait)** : 1 commande payée de Teiki
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 }
+  { "id": 101, "userId": 2, "total": 42, "status": "paid" }
 ]
 ```
 
-**Body réellement reçu (BUG OBSERVABLE)** : **2 commandes incluant l'annulée**, enrichies avec `totalXpf`
+**Body réellement reçu (BUG OBSERVABLE)** : **2 commandes incluant l'annulée**
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 },
-  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "totalXpf": 18 }
+  { "id": 101, "userId": 2, "total": 42, "status": "paid" },
+  { "id": 102, "userId": 2, "total": 18, "status": "cancelled" }
 ]
 ```
 
@@ -345,7 +334,6 @@ Status : **200 OK**
 - ✅ Filtre `userId` appliqué correctement en premier → [101, 102]
 - ❌ Filtre `active=true` **NE filtre rien** — commande 102 (annulée) **PASSE À TRAVERS**
 - ❌ Le bug orthographique s'applique : `"cancelled" !== "canceled"` → true, l'objet passe
-- ✅ Les 2 objets retournés enrichis avec `totalXpf` (42, 18)
 
 ### Variante 4c — active=false (paramètre ignoré)
 
@@ -361,9 +349,8 @@ GET /orders?active=false HTTP/1.1
 - ✅ Autres valeurs → false (pas d'erreur)
 
 **Preuve du code (démontrant le bug)**
-- `src/server.js:20` : `url.searchParams.get("active") === "true"` (exact match, correct)
-- `src/server.js:23` : appel conditionnel `filterActiveOrders(result)` (correct)
-- `src/routes/orders.js:23` : **BUG** — `order.status !== "canceled"` (orthographe US) au lieu de `"cancelled"` (orthographe GB utilisée dans les données)
+- `src/server.js:... (voir branchement active)` : test du paramètre `active` (correct)
+- `src/routes/orders.js:21` : **BUG** — `order.status !== "canceled"` (orthographe US) au lieu de `"cancelled"` (orthographe GB utilisée dans les données)
 - Résultat : aucune commande n'est jamais exclue car la condition ne match jamais
 
 ---
@@ -468,10 +455,10 @@ Body : 1 commande payée de Teiki (101)
 **Points de contrôle**
 - ✅ Composition : userId appliqué en premier, active ensuite
 - ✅ Commande 102 (annulée) exclue correctement
-- ✅ L'objet retourné enrichi avec `totalXpf` (42)
+- ✅ L'objet retourné avec `total` en XPF (42)
 
 **Preuve du code**
-- `src/server.js:19-23` : composition des filtres, userId puis active
+- `src/server.js:27-41` : composition des filtres, userId puis active
 
 ---
 
@@ -495,8 +482,8 @@ Body : 1 commande payée de Teiki (101)
 - ✅ Aucune écriture possible = données immuables en session
 
 **Preuve du code**
-- `src/routes/users.js:3-7` : `const users = [...]` réinitialisé à chaque require
-- `src/routes/orders.js:4-8` : `const orders = [...]` réinitialisé à chaque require
+- `src/routes/users.js:3-10` : `const users = [...]` réinitialisé à chaque require
+- `src/routes/orders.js:5-10` : `const orders = [...]` réinitialisé à chaque require
 
 ---
 
