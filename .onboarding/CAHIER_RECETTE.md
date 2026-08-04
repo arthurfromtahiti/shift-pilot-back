@@ -107,30 +107,26 @@ Body (JSON) :
   {
     "id": 101,
     "userId": 2,
-    "total": 4200,
+    "total": 42,
     "status": "paid",
-    "totalXpf": 42
   },
   {
     "id": 102,
     "userId": 2,
-    "total": 1800,
+    "total": 18,
     "status": "cancelled",
-    "totalXpf": 18
   },
   {
     "id": 103,
     "userId": 3,
-    "total": 9600,
+    "total": 96,
     "status": "paid",
-    "totalXpf": 96
   },
   {
     "id": 104,
     "userId": 3,
-    "total": 3000,
+    "total": 30,
     "status": "cancelled",
-    "totalXpf": 30
   }
 ]
 ```
@@ -183,16 +179,14 @@ Body (JSON) :
   {
     "id": 101,
     "userId": 2,
-    "total": 4200,
+    "total": 42,
     "status": "paid",
-    "totalXpf": 42
   },
   {
     "id": 102,
     "userId": 2,
-    "total": 1800,
+    "total": 18,
     "status": "cancelled",
-    "totalXpf": 18
   }
 ]
 ```

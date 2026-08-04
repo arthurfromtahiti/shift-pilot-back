@@ -62,7 +62,7 @@ shift-pilot-back/
 
 | Élément | Type | Ligne(s) | Détail |
 |---------|------|----------|--------|
-| `orders` | Data (const array) | 3-8 | Tableau littéral, 4 objets `{id, userId, total, status}`. Statut ∈ {`"paid"`, `"cancelled"`} (double l). |
+| `orders` | Data (const array) | 5-10 | Tableau littéral, 4 objets `{id, userId, total, status}`. `total` en XPF (42, 18, 96, 30). Statut ∈ {`"paid"`, `"cancelled"`} (double l). |
 | `listOrders()` | Function export | 10-12 | Retourne `orders` sans modification. Aucun tri appliqué. |
 | `getOrdersByUser(userId)` | Function export | 14-16 | Filtre par `order.userId === userId`. Fonctionne correctement. |
 | `filterActiveOrders(orderList)` | Function export | 22-24 | **Bug volontaire** : compare `order.status !== "canceled"` (orthographe américaine) alors que les données portent `"cancelled"` (britannique). La fonction ne filtre jamais rien et retourne toujours la liste intacte. |
@@ -98,7 +98,7 @@ shift-pilot-back/
 | Dispatcher | if-else block | 11-35 | Parse `req.url`, teste méthode+chemin, délègue ou retourne 404. |
 | `new URL(req.url, ...)` | URL parsing | 12 | Parse relative à `http://${req.headers.host}` — préserve chemin + query string. |
 | Routes GET /users | if-block | 14-16 | Branchement `→ listUsers()`. |
-| Routes GET /orders | if-block | 18-26 | Branchement + orchestration filtres (userId, active). Paramètres optionnels fournis par query string, appliqués en cascade. Enrichit chaque commande retournée avec `totalXpf: Math.round(total/100)` (arrondi du montant en centimes, calculé à la ligne 25). **C'est ici que la logique métier est composée.** |
+| Routes GET /orders | if-block | 18-26 | Branchement + orchestration filtres (userId, active). Paramètres optionnels fournis par query string, appliqués en cascade.  **C'est ici que la logique métier est composée.** |
 | Fallback 404 | if-block | 34 | Tout ce qui ne match pas → 404 + `{error: "Not found"}`. |
 | `require.main === module` | Conditional | 38-42 | Démarre le serveur uniquement si invoqué directement (pas si importé en test). |
 | `module.exports = server` | Export | 44 | Permet d'importer le serveur en test et de le décorer (ex. faire des requêtes HTTP). |
