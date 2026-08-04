@@ -208,3 +208,16 @@ test("GET /orders?userId=3&sort=date_desc retourne les commandes de l'utilisateu
   // id103 (mars) et id104 (avr) appartiennent à userId=3 ; desc → 104 avant 103
   assert.deepEqual(ids, [104, 103], "combinaison userId + sort=date_desc doit retourner 104 avant 103");
 });
+
+// CLA-221 — from > to : plage impossible → tableau vide (les deux filtres s'appliquent indépendamment)
+test("GET /orders?from=2024-04-01&to=2024-02-01 (from > to) retourne tableau vide", async () => {
+  const result = await get("/orders?from=2024-04-01&to=2024-02-01");
+  assert.deepEqual(result, [], "une plage inversée (from > to) ne peut contenir aucune commande");
+});
+
+// CLA-221 — combinaison from/to + sort
+test("GET /orders?from=2024-02-01&to=2024-03-31&sort=date_desc retourne id103 avant id102", async () => {
+  const result = await get("/orders?from=2024-02-01&to=2024-03-31&sort=date_desc");
+  const ids = result.map((o) => o.id);
+  assert.deepEqual(ids, [103, 102], "combinaison plage fév–mars + sort=date_desc doit retourner 103 avant 102");
+});
