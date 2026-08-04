@@ -93,6 +93,33 @@ test("GET /orders?active=true&status=cancelled returns cancelled orders (status 
   );
 });
 
+// CLA-187 — GET /orders doit enrichir chaque commande avec clientName
+test("GET /orders enrichit chaque commande avec clientName", async () => {
+  const result = await get("/orders");
+  assert.ok(
+    result.every((o) => "clientName" in o),
+    "toutes les commandes doivent exposer clientName",
+  );
+  const order101 = result.find((o) => o.id === 101);
+  const order103 = result.find((o) => o.id === 103);
+  assert.equal(order101.clientName, "Teiki", "userId=2 → clientName doit être Teiki");
+  assert.equal(order103.clientName, "Manoa", "userId=3 → clientName doit être Manoa");
+});
+
+// CLA-187 — l'enrichissement clientName ne doit pas casser le filtre par userId
+test("GET /orders?userId=2 filtre par userId et expose clientName correct", async () => {
+  const result = await get("/orders?userId=2");
+  assert.ok(result.length > 0, "au moins une commande pour userId=2");
+  assert.ok(
+    result.every((o) => o.userId === 2),
+    "toutes les commandes retournées doivent appartenir à userId=2",
+  );
+  assert.ok(
+    result.every((o) => o.clientName === "Teiki"),
+    "toutes les commandes de userId=2 doivent avoir clientName=Teiki",
+  );
+});
+
 test("filterByStatus filters orders by exact status match", () => {
   const sample = [
     { id: 1, status: "paid" },
