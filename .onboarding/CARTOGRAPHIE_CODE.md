@@ -39,12 +39,11 @@ shift-pilot-back/
 |---------|------|----------|--------|
 | `users` | Data (const array) | 3-7 | Tableau littéral, 3 objets `{id, name, email, role}`. Données figées en mémoire. |
 | `listUsers()` | Function export | 9-11 | Retourne `users` complet. Aucun paramètre, aucun filtre. |
-| `getUserById(id)` | Function export | 13-15 | Lookup par ID via `find()`. **Importée dans server.js:3, jamais appelée.** |
+| `getUserById(id)` | Function export | 13-15 | Lookup par ID via `find()`. Importée dans server.js:4. Appelée par GET /orders (server.js:53) pour enrichir chaque commande avec clientName (CLA-187). |
 | `isAdmin(user)` | Function export | 17-19 | Prédicat : `user !== null && user.role === "admin"`. Exportée, jamais importée. |
 | Route HTTP | GET /users | server.js:14-16 | `GET /users` → `listUsers()` → JSON 200 |
 
 **Points critiques**
-- **Import mort** : `getUserById` importé ligne 3 de server.js mais aucune route ne l'appelle — signal d'une future route `/users/:id` non câblée.
 - **Export mort** : `isAdmin` exporté ligne 21 de users.js, jamais consommé — squelette d'autorisation déconnecté.
 - **Données brutes en réponse** : champ `role` exposé sans contrôle d'accès (src/routes/users.js:4-6, src/server.js:14-16).
 
@@ -98,13 +97,13 @@ shift-pilot-back/
 | Dispatcher | if-else block | 11-35 | Parse `req.url`, teste méthode+chemin, délègue ou retourne 404. |
 | `new URL(req.url, ...)` | URL parsing | 12 | Parse relative à `http://${req.headers.host}` — préserve chemin + query string. |
 | Routes GET /users | if-block | 14-16 | Branchement `→ listUsers()`. |
-| Routes GET /orders | if-block | 18-26 | Branchement + orchestration filtres (userId, active). Paramètres optionnels fournis par query string, appliqués en cascade. Enrichit chaque commande retournée avec `totalXpf: Math.round(total/100)` (arrondi du montant en centimes, calculé à la ligne 25). **C'est ici que la logique métier est composée.** |
-| Fallback 404 | if-block | 34 | Tout ce qui ne match pas → 404 + `{error: "Not found"}`. |
-| `require.main === module` | Conditional | 38-42 | Démarre le serveur uniquement si invoqué directement (pas si importé en test). |
-| `module.exports = server` | Export | 44 | Permet d'importer le serveur en test et de le décorer (ex. faire des requêtes HTTP). |
+| Routes GET /orders | if-block | 27-56 | Branchement + orchestration filtres (userId, active, status, sort, from, to). Paramètres optionnels fournis par query string, appliqués en cascade. Chaque commande est enrichie avec `clientName` via lookup `getUserById()` (server.js:52-55, CLA-187). Filtrage par date YYYY-MM-DD valide (server.js:43-46), tri date (server.js:48-50). **C'est ici que la logique métier est composée.** |
+| Fallback 404 | if-block | 58 | Tout ce qui ne match pas → 404 + `{error: "Not found"}`. |
+| `require.main === module` | Conditional | 61-65 | Démarre le serveur uniquement si invoqué directement (pas si importé en test). |
+| `module.exports = server` | Export | 68 | Permet d'importer le serveur en test et de le décorer (ex. faire des requêtes HTTP). |
 
 **Points critiques**
-- **Multi-responsabilité** : parsing HTTP + routage + orchestration métier dans un seul fichier. Acceptable à 44 lignes. Debt dès la 4ème-5ème route ajoutée.
+- **Multi-responsabilité** : parsing HTTP + routage + orchestration métier dans un seul fichier. Acceptable à 69 lignes actuellement. Debt dès la 5ème-6ème route ajoutée.
 - **Aucun middleware transverse** : pas de try/catch global, pas de middleware d'erreur. Une exception non attrapée crasherait le processus sans réponse HTTP.
 - **Seul point de modification pour toute évolution fonctionnelle** : ajouter une route, un paramètre, un filtre passe obligatoirement par ce fichier.
 
@@ -114,16 +113,16 @@ shift-pilot-back/
 
 | Méthode | Chemin | Code | Domaine | Comportement |
 |---------|--------|------|---------|---|
-| GET | `/users` | server.js:14-16 | utilisateurs | Retourne annuaire complet (200 + JSON) |
-| GET | `/orders` | server.js:18-26 | commandes | Retourne commandes ; filtres optionnels `userId`, `active` |
-| (any) | (autre) | server.js:34 | — | 404 + `{error: "Not found"}` |
+| GET | `/users` | server.js:16-17 | utilisateurs | Retourne annuaire complet (200 + JSON) |
+| GET | `/orders` | server.js:27-56 | commandes | Retourne commandes filtrées, enrichies avec clientName (userId, active, status, sort, from, to) |
+| (any) | (autre) | server.js:58 | — | 404 + `{error: "Not found"}` |
 
 ### Exports du système (pour test/import)
 
 | Export | Fichier | Usage |
 |--------|---------|-------|
-| `listUsers()` | users.js:9-11 | Exposé via GET /users. Importé : server.js:3. |
-| `getUserById(id)` | users.js:13-15 | Importé : server.js:3. **Jamais appelé** (route /users/:id non câblée). |
+| `listUsers()` | users.js:9-11 | Exposé via GET /users. Importé : server.js:4. |
+| `getUserById(id)` | users.js:13-15 | Importé : server.js:4. Appelé par GET /orders (server.js:53) pour enrichir chaque commande avec clientName (CLA-187). |
 | `isAdmin(user)` | users.js:17-19 | Exporté ligne 21. **Jamais importé.** |
 | `listOrders()` | orders.js:12-14 | Utilisé via GET /orders sans filtre. Retourne les commandes triées par id. Importé : server.js:4. |
 | `getOrdersByUser(id)` | orders.js:16-18 | Utilisé par GET /orders?userId=. Importé : server.js:4. |
@@ -157,15 +156,16 @@ shift-pilot-back/
 - Correction du bug `filterActiveOrders` → changer `"canceled"` en `"cancelled"`
 - Ajout d'un filtre par statut supplémentaire → nouvelle fonction + branchement dans server.js
 
-### 3. `src/routes/users.js:3,17-19` (hotspot secondaire — imports morts)
+### 3. `src/routes/users.js:17-19` (hotspot secondaire — export mort)
 
 **Criticité** : faible. Décision produit requise.
 
-**Options**
-- (a) Câbler route `GET /users/:id` (utiliser `getUserById`)
-- (b) Retirer l'import mort de `server.js:3`
-- (c) Câbler contrôle d'accès (utiliser `isAdmin`)
-- (d) Retirer `isAdmin` exporté
+**État actuel** : `getUserById` est **utilisée** (CLA-187) dans GET /orders pour enrichir avec clientName (server.js:53). `isAdmin` reste un export mort.
+
+**Options restantes**
+- (a) Câbler une route `GET /users/:id` si elle est utile au produit
+- (b) Câbler contrôle d'accès (utiliser `isAdmin`)
+- (c) Retirer `isAdmin` exporté si jamais utilisée
 
 ## Zones de faible confiance
 
@@ -173,11 +173,11 @@ Aucune. Tous les fichiers source ont été lus intégralement.
 
 ## Preuves
 
-**Architecture générale** : src/server.js:1-44 (lu intégralement, 44 lignes)
+**Architecture générale** : src/server.js:1-68 (lu intégralement, 69 lignes)
 
 **Domaine utilisateurs** : src/routes/users.js:1-21 (lu intégralement, 21 lignes)
 
-**Domaine commandes** : src/routes/orders.js:1-30 (lu intégralement, 30 lignes)
+**Domaine commandes** : src/routes/orders.js:1-32 (lu intégralement, 32 lignes)
 
 **Package** : package.json (aucune dépendance, engines node>=18)
 
