@@ -21,8 +21,12 @@ function filterActiveOrders(orderList) {
   return orderList.filter((order) => order.status !== "cancelled");
 }
 
+function filterByStatus(orderList, status) {
+  return orderList.filter((order) => order.status === status);
+}
+
 function getOrderById(id) {
   return orders.find(order => order.id === id) || null;
 }
 
-module.exports = { listOrders, getOrdersByUser, filterActiveOrders, getOrderById };
+module.exports = { listOrders, getOrdersByUser, filterActiveOrders, getOrderById, filterByStatus };

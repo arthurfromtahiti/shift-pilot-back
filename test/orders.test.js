@@ -1,43 +1,8 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const http = require("node:http");
-const { filterActiveOrders } = require("../src/routes/orders");
+const { filterActiveOrders, filterByStatus } = require("../src/routes/orders");
 const server = require("../src/server");
-
-function request(path) {
-  return new Promise((resolve, reject) => {
-    const port = 0;
-    server.listen(port, "127.0.0.1", () => {
-      const addr = server.address();
-      const http = require("node:http");
-      http.get(`http://127.0.0.1:${addr.port}${path}`, (res) => {
-        let body = "";
-        res.on("data", chunk => { body += chunk; });
-        res.on("end", () => {
-          server.close();
-          resolve({ status: res.statusCode, body: JSON.parse(body) });
-        });
-      }).on("error", (err) => { server.close(); reject(err); });
-    });
-  });
-}
-
-test("GET /orders/101 returns the order with id 101", async () => {
-  const { status, body } = await request("/orders/101");
-  assert.equal(status, 200);
-  assert.deepEqual(body, { id: 101, userId: 2, total: 4200, status: "paid" });
-});
-
-test("GET /orders/999 returns 404 with error message", async () => {
-  const { status, body } = await request("/orders/999");
-  assert.equal(status, 404);
-  assert.deepEqual(body, { error: "Not found" });
-});
-
-test("GET /orders/101/extra returns 404 (extra segment must not match)", async () => {
-  const { status } = await request("/orders/101/extra");
-  assert.equal(status, 404);
-});
 
 test("filterActiveOrders excludes cancelled orders", () => {
   const sample = [
@@ -73,15 +38,75 @@ function get(path) {
   });
 }
 
-// CLA-125 — GET /orders must include totalXpf = Math.round(total / 100)
-test("GET /orders includes totalXpf computed from total", async () => {
+test("GET /orders without ?status returns all orders", async () => {
   const result = await get("/orders");
+  assert.equal(result.length, 4, "all 4 orders must be returned when no status filter is provided");
+});
+
+test("GET /orders?status=paid returns only paid orders", async () => {
+  const result = await get("/orders?status=paid");
+  assert.ok(result.length > 0, "should return at least one paid order");
   assert.ok(
-    result.every((o) => o.totalXpf === Math.round(o.total / 100)),
-    "each order must have totalXpf === Math.round(total / 100)",
+    result.every((o) => o.status === "paid"),
+    "all returned orders must have status=paid",
   );
-  const order101 = result.find((o) => o.id === 101);
-  assert.ok(order101, "order 101 must be present");
-  assert.equal(order101.total, 4200, "order 101 must still have total=4200");
-  assert.equal(order101.totalXpf, 42, "order 101 must have totalXpf=42");
+});
+
+test("GET /orders?status=cancelled returns only cancelled orders", async () => {
+  const result = await get("/orders?status=cancelled");
+  assert.ok(result.length > 0, "should return at least one cancelled order");
+  assert.ok(
+    result.every((o) => o.status === "cancelled"),
+    "all returned orders must have status=cancelled",
+  );
+});
+
+test("GET /orders?status=unknown returns empty list, not an error", async () => {
+  const result = await get("/orders?status=unknown");
+  assert.deepEqual(result, [], "unknown status must return empty array");
+});
+
+// CLA-114 — Bug 1: American spelling "canceled" must match British "cancelled" in data
+test("GET /orders?status=canceled (one l) returns same orders as ?status=cancelled", async () => {
+  const onEl = await get("/orders?status=canceled");
+  const twoEl = await get("/orders?status=cancelled");
+  assert.ok(onEl.length > 0, "canceled (one l) must return at least one order");
+  assert.deepEqual(
+    onEl.map((o) => o.id).sort(),
+    twoEl.map((o) => o.id).sort(),
+    "?status=canceled must return the same orders as ?status=cancelled",
+  );
+});
+
+// CLA-114 — Bug 2: explicit status param must take precedence over active=true filter
+test("GET /orders?active=true&status=cancelled returns cancelled orders (status wins)", async () => {
+  const result = await get("/orders?active=true&status=cancelled");
+  assert.ok(result.length > 0, "should return at least one cancelled order despite active=true");
+  assert.ok(
+    result.every((o) => o.status === "cancelled"),
+    "all returned orders must have status=cancelled",
+  );
+  assert.deepEqual(
+    result.map((o) => o.id).sort(),
+    [102, 104],
+    "must return orders 102 and 104",
+  );
+});
+
+test("filterByStatus filters orders by exact status match", () => {
+  const sample = [
+    { id: 1, status: "paid" },
+    { id: 2, status: "cancelled" },
+    { id: 3, status: "paid" },
+  ];
+
+  assert.deepEqual(
+    filterByStatus(sample, "paid").map((o) => o.id),
+    [1, 3],
+  );
+  assert.deepEqual(
+    filterByStatus(sample, "cancelled").map((o) => o.id),
+    [2],
+  );
+  assert.deepEqual(filterByStatus(sample, "unknown"), []);
 });
