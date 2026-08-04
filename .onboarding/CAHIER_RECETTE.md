@@ -8,7 +8,7 @@
 
 Ce cahier couvre **100% des routes implémentées** :
 - `GET /users` — route de consultation de l'annuaire
-- `GET /orders` — route de consultation/filtrage des commandes (3 cas de filtrage)
+- `GET /orders` — route de consultation/filtrage des commandes (filtres : userId, active, status)
 - Fallback 404 — routes inexistantes ou méthodes interdites
 
 Aucune route d'écriture à tester (POST/PUT/PATCH/DELETE inexistantes).
@@ -265,38 +265,22 @@ Body : `[]`
 
 ---
 
-## Scenario 4 — Filtrer commandes actives (active=true) — BUG VOLONTAIRE
+## Scenario 4 — Filtrer commandes actives (active=true) — Fonctionnel depuis CLA-114
 
-**Classification** : anomalie documentée, bug volontaire du pilote
+**Classification** : nominal, filtre fonctionnel
 
-**Objectif** : démontrer le filtre cassé et le bug intentionnel
+**Objectif** : vérifier que le filtre `?active=true` exclut bien les commandes annulées
 
-### Variante 4a — active=true sans userId (toutes les commandes actives attendues)
+### Variante 4a — active=true sans userId
 
 **Requête**
 ```
 GET /orders?active=true HTTP/1.1
 ```
 
-**VÉRIFIÉ_CODE (défaillant)** ❌
-
 Status : **200 OK**
 
-Body : 4 commandes (y compris les annulées)
-```json
-[
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid" },
-  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled" },
-  { "id": 103, "userId": 3, "total": 9600, "status": "paid" },
-  { "id": 104, "userId": 3, "total": 3000, "status": "cancelled" }
-]
-```
-
-**Comportement attendu (correct)** ✅
-
-Status : **200 OK**
-
-Body : 2 commandes payées
+Body : 2 commandes payées uniquement
 ```json
 [
   { "id": 101, "userId": 2, "total": 4200, "status": "paid" },
@@ -304,16 +288,10 @@ Body : 2 commandes payées
 ]
 ```
 
-**Différence** : le filtre retourne les 4 au lieu de 2. Les commandes 102 et 104 (annulées) passent le filtre à tort.
-
-**Cause du mismatch** : `src/routes/orders.js:23`
-```javascript
-return orders.filter(order => order.status !== "canceled")
-```
-
-Données portent `"cancelled"` (double `l`), comparaison vérifie `!== "canceled"` (un seul `l`). Aucune valeur ne correspond → tout passe le filtre.
-
-**Constat** : Mismatch d'orthographe entre les données (`src/routes/orders.js:3-8`) et la comparaison (`src/routes/orders.js:23`). Le paramètre `?active=true` n'a aucun effet. La correction exige une décision au niveau métier : harmoniser l'orthographe du statut dans les données ou dans la logique de comparaison. Cette décision est en suspens — voir `PROJECT_CONTEXT.md:décisions-en-suspens`.
+**Points de contrôle**
+- ✅ Statut 200
+- ✅ Commandes annulées (102, 104) absentes du résultat
+- ✅ 2 commandes payées retournées
 
 ### Variante 4b — active=true avec userId=2
 
@@ -322,17 +300,7 @@ Données portent `"cancelled"` (double `l`), comparaison vérifie `!== "canceled
 GET /orders?userId=2&active=true HTTP/1.1
 ```
 
-**VÉRIFIÉ_CODE (défaillant)** ❌
-
-Body : 2 commandes de Teiki (y compris l'annulée)
-```json
-[
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid" },
-  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled" }
-]
-```
-
-**Comportement attendu** ✅
+Status : **200 OK**
 
 Body : 1 commande payée de Teiki
 ```json
@@ -341,11 +309,9 @@ Body : 1 commande payée de Teiki
 ]
 ```
 
-**Points de contrôle** (pour chaque variante de ce scenario)
-- ✅ Filtre `userId` appliqué en premier (correct)
-- ✅ Filtre `active=true` appliqué ensuite (défaillant)
-- ⚠️ Les filtres sont composables mais le second ne fonctionne pas
-- 📍 Bug documenté : README.md:9, src/routes/orders.js:18-21, test/orders.test.js:5-19
+**Points de contrôle**
+- ✅ Filtre `userId` appliqué en premier
+- ✅ Filtre `active=true` appliqué ensuite, exclut commande 102 (annulée)
 
 ### Variante 4c — active=false (paramètre ignoré)
 
@@ -357,14 +323,13 @@ GET /orders?active=false HTTP/1.1
 **Réponse** : 4 commandes (paramètre non traité, defaults à `activeOnly=false`)
 
 **Points de contrôle**
-- ✅ Seule chaîne `"true"` (exact) est traitée comme true
+- ✅ Seule chaîne `"true"` (exact) déclenche le filtre
 - ✅ Autres valeurs → false (pas d'erreur)
 
 **Preuve du code**
 - `src/server.js:20` : `url.searchParams.get("active") === "true"` (exact match)
-- `src/server.js:23` : appel conditionnel `filterActiveOrders(result)`
-- `src/routes/orders.js:22-24` : **le bug intentionnel** (comparaison fausse)
-- `test/orders.test.js:5-19` : test rouge documentant l'échec attendu
+- `src/server.js:28` : appel conditionnel `filterActiveOrders(result)` si pas de `?status=`
+- `src/routes/orders.js:20-22` : filtre correct `order.status !== "cancelled"`
 
 ---
 
@@ -446,11 +411,9 @@ Body : `{ "error": "Not found" }`
 
 ---
 
-## Scenario 6 — Composition de filtres (userId + active)
+## Scenario 6 — Composition de filtres (userId + active ou status)
 
 **Classification** : nominal, cas d'interaction de filtres
-
-**Note** : ce scenario est défaillant du côté `active=true` (bug volontaire). Il démontre néanmoins la composition.
 
 ### Variante 6a — Filtrer les commandes actives de Teiki (userId=2)
 
@@ -459,26 +422,36 @@ Body : `{ "error": "Not found" }`
 GET /orders?userId=2&active=true HTTP/1.1
 ```
 
-**Résultat OBSERVÉ** (défaillant) ❌
-
 Status : **200 OK**
-
-Body : 2 commandes de Teiki (1 payée + 1 annulée)
-
-**Résultat attendu** ✅
 
 Body : 1 commande payée de Teiki (101)
 
 **Ordre d'application des filtres**
 1. `userId=2` → filtre sur Teiki → [101, 102]
-2. `active=true` → filtre sur actifs (défaillant) → [101, 102] au lieu de [101]
+2. `active=true` (et `status` absent) → `filterActiveOrders` → [101]
 
 **Points de contrôle**
 - ✅ Composition : userId appliqué en premier, active ensuite
-- ❌ Le second filtre ne fonctionne pas (bug)
+- ✅ Commande 102 (annulée) exclue correctement
+
+### Variante 6b — status prime sur active
+
+**Requête**
+```
+GET /orders?active=true&status=cancelled HTTP/1.1
+```
+
+Status : **200 OK**
+
+Body : 2 commandes annulées (102, 104) — `?status=` prend la main sur `?active=true`
+
+**Points de contrôle**
+- ✅ `?status=cancelled` est appliqué (filtre par statut exact)
+- ✅ `?active=true` ignoré quand `?status=` est présent
+- ✅ Résultat : commandes 102 et 104
 
 **Preuve du code**
-- `src/server.js:22-23` : composition des filtres dans l'ordre
+- `src/server.js:26-29` : composition des filtres, status prioritaire
 
 ---
 
@@ -507,76 +480,60 @@ Body : 1 commande payée de Teiki (101)
 
 ---
 
-## Scenario 8 — Récupérer une commande par identifiant (GET /orders/:id)
+## Scenario 8 — Filtrer commandes par statut (?status=)
 
-**Classification** : nominal + cas d'erreur, route ajoutée par CLA-30
+**Classification** : nominal, filtre par statut exact
 
-**Objectif** : un client récupère une commande précise par son ID entier
+**Objectif** : vérifier les différentes valeurs du filtre `?status=`
 
-**Préconditions**
-- Serveur démarré
-- Aucun paramètre de requête (l'ID est dans le chemin)
+### Variante 8a — status=paid
 
-### Variante 8a — ID existant (commande trouvée)
-
-**Requête**
-```
-GET /orders/101 HTTP/1.1
-Host: localhost:3000
-```
-
-**Réponse attendue**
+**Requête** : `GET /orders?status=paid`
 
 Status : **200 OK**
 
-Body (JSON) :
-```json
-{ "id": 101, "userId": 2, "total": 4200, "status": "paid" }
-```
+Body : 2 commandes payées (101, 103)
 
 **Points de contrôle**
-- ✅ Statut 200
-- ✅ Objet JSON unique (pas un tableau)
-- ✅ Champs `id`, `userId`, `total`, `status` présents et cohérents avec les données
+- ✅ Seules les commandes avec `status="paid"` retournées
 
-### Variante 8b — ID inexistant (commande absente)
+### Variante 8b — status=cancelled
 
-**Requête**
-```
-GET /orders/999 HTTP/1.1
-```
+**Requête** : `GET /orders?status=cancelled`
 
-**Réponse attendue**
+Status : **200 OK**
 
-Status : **404 Not Found**
-
-Body : `{ "error": "Not found" }`
+Body : 2 commandes annulées (102, 104)
 
 **Points de contrôle**
-- ✅ Statut 404
-- ✅ Corps d'erreur `{ "error": "Not found" }`
+- ✅ Seules les commandes annulées retournées
 
-### Variante 8c — Chemin avec segment supplémentaire (hors spec)
+### Variante 8c — status=canceled (orthographe américaine, 1 l)
 
-**Requête**
-```
-GET /orders/101/extra HTTP/1.1
-```
+**Requête** : `GET /orders?status=canceled`
 
-**Réponse attendue**
+Status : **200 OK**
 
-Status : **404 Not Found**
-
-Body : `{ "error": "Not found" }`
+Body : mêmes 2 commandes annulées (102, 104) — alias normalisé côté serveur
 
 **Points de contrôle**
-- ✅ Statut 404 (la route ne matche que `/orders/<id>` exact — pas de sous-chemins)
-- ✅ Le segment extra n'est pas interprété comme un ID
+- ✅ `?status=canceled` et `?status=cancelled` retournent les mêmes commandes
+- ✅ Normalisation dans `src/server.js:24`
+
+### Variante 8d — status inconnu
+
+**Requête** : `GET /orders?status=unknown`
+
+Status : **200 OK**
+
+Body : `[]` (liste vide)
+
+**Points de contrôle**
+- ✅ Statut inconnu → liste vide, pas d'erreur 400
 
 **Preuve du code**
-- `src/server.js:28-33` : match via `/^\/orders\/[^/]+$/` (segment unique obligatoire)
-- `src/routes/orders.js:26-28` : `getOrderById(id)` — lookup strict `===`
-- `test/orders.test.js:24-34,36-39` : variantes 8a, 8b et 8c couvertes
+- `src/server.js:21,24,29` : lecture, normalisation, appel `filterByStatus`
+- `src/routes/orders.js:24-26` : `filterByStatus(orderList, status)` — filtre exact
 
 ---
 
@@ -585,13 +542,13 @@ Body : `{ "error": "Not found" }`
 | Scenario | Chemin de code | Statut |
 |----------|----------------|--------|
 | 1. Lister utilisateurs | src/server.js:14-16, src/routes/users.js:9-11 | ✅ Fonctionnel |
-| 2. Lister commandes | src/server.js:18-26, src/routes/orders.js:10-12 | ✅ Fonctionnel |
-| 3. Filtrer par userId | src/server.js:22, src/routes/orders.js:14-16 | ✅ Fonctionnel |
-| 4. Filtrer par active=true | src/server.js:23, src/routes/orders.js:22-24 | ❌ Bugué (volontaire) |
-| 5. Routes invalides | src/server.js:35 | ✅ Fonctionnel |
-| 6. Composition userId+active | src/server.js:22-23 | ❌ Partiellement bugué |
-| 7. Données statiques | src/routes/*.js:3-8 | ✅ Vérifiable |
-| 8. Récupérer commande par ID | src/server.js:28-33, src/routes/orders.js:26-28 | ✅ Fonctionnel |
+| 2. Lister commandes | src/server.js:18-32, src/routes/orders.js:12-14 | ✅ Fonctionnel |
+| 3. Filtrer par userId | src/server.js:26, src/routes/orders.js:16-18 | ✅ Fonctionnel |
+| 4. Filtrer par active=true | src/server.js:28, src/routes/orders.js:20-22 | ✅ Fonctionnel (corrigé CLA-114) |
+| 5. Routes invalides | src/server.js:34 | ✅ Fonctionnel |
+| 6. Composition filtres | src/server.js:26-29 | ✅ Fonctionnel (status > active) |
+| 7. Données statiques | src/routes/*.js:5-10 | ✅ Vérifiable |
+| 8. Filtrer par status | src/server.js:21,24,29, src/routes/orders.js:24-26 | ✅ Fonctionnel (CLA-66) |
 
 ## Instructions de recette — à la main ou automatisé
 
@@ -613,14 +570,12 @@ curl 'http://localhost:3000/orders?active=true' | jq .
 
 ### Approche automatisée (existant)
 
-Le test `test/orders.test.js:5-19` couvre le bug du scenario 4 et échoue au vert (test rouge documentant le défaut).
+Les tests `test/orders.test.js` couvrent les filtres actifs, status, alias, et priorité. Tous les tests passent au vert.
 
 Exécution :
 ```bash
 node --test test/orders.test.js
 ```
-
-Résultat attendu : test échoue à l'assertion `t.ok(activeOrders.length === 2)` ligne 14 — preuve que le bug existe.
 
 ---
 

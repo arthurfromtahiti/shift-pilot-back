@@ -86,21 +86,19 @@
 
 ---
 
-## Bug volontaire en chaîne
+## Filtre `?active=true` — Corrigé (CLA-114)
 
-### Filtre `?active=true` inopérant
+**Description** : le frontend demande les commandes actives via `?active=true`. Le backend retourne maintenant **uniquement les commandes payées** (`status !== "cancelled"`).
 
-**Description** : le frontend demande les commandes actives via `?active=true`, mais le backend retourne **toutes les commandes, y compris annulées**.
+**Correction côté backend** : `filterActiveOrders` utilise `"cancelled"` (orthographe UK, double l), aligné sur les données.  
+**Preuve** : `src/routes/orders.js:20-22`
 
-**Cause côté backend** : `filterActiveOrders` compare `status !== "canceled"` (orthographe US) alors que les données portent `"cancelled"` (orthographe UK).  
-**Preuve** : `src/routes/orders.js:23` (comparaison), lignes 3-8 (données)  
-**Conséquence** : le filtre échoue silencieusement ; tous les ordres passent.
+**Impact côté frontend** : l'affichage "Commandes actives" ne devrait plus montrer les commandes annulées.  
+**Note** : le frontend consommant `?active=true` (`js/app.js:7`) bénéficiera du correctif sans modification de son code.
 
-**Résultat côté frontend** : affichage des commandes annulées sous un titre "Commandes actives".  
-**Preuves** : `js/app.js:7` (paramètre envoyé), `js/app.js:12` (pas de filtre local), `README.md:9` (bug documenté)  
-**Statut** : Volontaire pour ce pilote (voir README.md:9).
+**Nouveau filtre `?status=`** : le backend expose aussi `GET /orders?status=paid` et `GET /orders?status=cancelled`. Le frontend ne consomme pas encore ce filtre (toujours sur `?active=true`).
 
-**Scénarios de recette** : détails dans `CAHIER_RECETTE.md` backend (cas 4.5) et frontend (scénario 4).
+**Scénarios de recette** : détails dans `CAHIER_RECETTE.md` backend (scénarios 4, 6, 8).
 
 ---
 
@@ -177,7 +175,7 @@
 | **Contrat API exposé (backend)** | ✅ high | Preuves code intégrales (src/server.js, routes) |
 | **Consommation côté client (frontend)** | ✅ high | Preuves code intégrales (js/app.js), workflow validé |
 | **Schéma d'échange JSON** | ✅ high | Observation dans les deux directions (création backend, consommation frontend) |
-| **Bug volontaire du filtre** | ✅ high | Documenté, testé (test rouge), observations dans les deux workspaces |
+| **Correction filtre `?active=true`** | ✅ high | Corrigé CLA-114, tests verts, comportement observable depuis les deux workspaces |
 | **Hypothèse : unité de `total`** | ⚠️ medium | Implicite frontend (division par 100), non documentée backend |
 | **Configuration `API_BASE_URL`** | ⚠️ medium | Mécanisme absence en prod, risque d'intégration connu |
 | **Authentification** | ⚠️ medium | Absence explicite prouvée, pas de détail sur éventuel fallback cookie/session |

@@ -20,7 +20,8 @@
 - Peut : lister tous les utilisateurs (`GET /users`)
 - Peut : lister toutes les commandes (`GET /orders`)
 - Peut : filtrer les commandes par utilisateur (`GET /orders?userId=N`)
-- Tentative : filtrer les commandes actives (`GET /orders?active=true` — inopérant, voir Risques)
+- Peut : filtrer les commandes actives (`GET /orders?active=true` — fonctionnel depuis CLA-114)
+- Peut : filtrer les commandes par statut exact (`GET /orders?status=paid` ou `?status=cancelled`) — prioritaire sur `active=true`
 - **Interdit** : créer, modifier, supprimer (aucune route POST/PUT/PATCH/DELETE)
 - **Interdit** : accéder à un utilisateur par id (helper existe, route absente)
 - **Interdit** : vérifier son autorisation (prédicat `isAdmin` existe, aucun contrôle d'accès câblé)
@@ -106,37 +107,48 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 ]
 ```
 
-#### Variante 2c — Commandes actives d'un utilisateur (BUG)
+#### Variante 2c — Commandes actives d'un utilisateur
 
 **Requête** : `GET /orders?userId=2&active=true`
 
-**Déroulement** (selon le code — comportement délivré)
+**Déroulement**
 1. Dispatcher teste condition `GET /orders` → vrai
-2. Lecture `userId = 2`, `activeOnly = true` (`src/server.js:19-20`)
-3. Appel `getOrdersByUser(2)` → retourne [101, 102]
-4. **Appel `filterActiveOrders([101, 102])`** (`src/server.js:23`)
-5. `filterActiveOrders` compare `order.status !== "canceled"` (`src/routes/orders.js:23`)
-   - Commande 101 : `"paid" !== "canceled"` → true, passe le filtre
-   - Commande 102 : `"cancelled" !== "canceled"` → true, passe aussi (c'est le bug)
-6. Résultat retourné : [101, 102], **incluant l'annulée**
+2. Lecture `userId = 2`, `activeOnly = true`, `statusParam = null` (`src/server.js:19-21`)
+3. `normalizedStatus = null` (pas de ?status=) (`src/server.js:24`)
+4. Appel `getOrdersByUser(2)` → retourne [101, 102]
+5. `activeOnly && normalizedStatus === null` → vrai : **appel `filterActiveOrders([101, 102])`** (`src/server.js:28`)
+6. `filterActiveOrders` compare `order.status !== "cancelled"` (correct, double l) (`src/routes/orders.js:20-22`)
+   - Commande 101 : `"paid" !== "cancelled"` → true, passe
+   - Commande 102 : `"cancelled" !== "cancelled"` → false, **exclue**
+7. Résultat retourné : [101]
 
-**Ce qui est attendu** : uniquement la commande payée (101)
+**Ce qui est reçu** : uniquement la commande payée (101) — comportement correct depuis CLA-114.
 
-**Ce qui est reçu** : les deux commandes, y compris 102 qui est annulée
-
-**Cause** : mismatch d'orthographe. Les données portent `"cancelled"` (double `l`, anglais britannique) — voir DATA_MODEL_AUDIT — mais le comparateur vérifie `!== "canceled"` (un seul `l`). La comparaison ne correspond jamais à la valeur réelle → toutes les commandes passent le filtre. Documenté intentionnellement (README.md:9, src/routes/orders.js:18-21, test rouge test/orders.test.js:5-19). **Ceci est le bug volontaire du pilote SHIFT.**
-
-#### Variante 2d — Commandes actives globales (BUG)
+#### Variante 2d — Commandes actives globales
 
 **Requête** : `GET /orders?active=true`
 
 **Déroulement**
 1. Dispatcher teste `GET /orders` → vrai
-2. Lecture `userId = null`, `activeOnly = true`
-3. Pas de filtre `userId` → appel `listOrders()` → [101, 102, 103, 104]
-4. **Appel `filterActiveOrders([...])`, même bug** → retourne toutes les 4
+2. Lecture `userId = null`, `activeOnly = true`, `statusParam = null`
+3. `listOrders()` → [101, 102, 103, 104] (tri par id)
+4. `filterActiveOrders([...])` → exclut 102 et 104 (`"cancelled"`)
 
-**Résultat reçu** : 4 commandes (2 payées + 2 annulées) au lieu de 2 payées
+**Résultat reçu** : 2 commandes payées (101, 103) — comportement correct.
+
+#### Variante 2e — Filtre par statut exact
+
+**Requête** : `GET /orders?status=paid`
+
+**Déroulement**
+1. Lecture `statusParam = "paid"`, `normalizedStatus = "paid"` (`src/server.js:21,24`)
+2. `listOrders()` → [101, 102, 103, 104]
+3. `normalizedStatus !== null` → **appel `filterByStatus(result, "paid")`** (`src/server.js:29`)
+4. Retourne les commandes avec `status === "paid"` : [101, 103]
+
+**Résultat** : 2 commandes payées. `?status=cancelled` retournerait [102, 104]. `?status=canceled` (1 l) est normalisé et retourne les mêmes résultats que `?status=cancelled`.
+
+**Priorité status/active** : si `?active=true&status=cancelled` → `status` prime (`src/server.js:28-29`), retourne [102, 104] (les annulées).
 
 ### Parcours 3 — Tentative d'accès refusé ou mal formé
 
@@ -160,12 +172,13 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 
 ### Commandes
 
-1. **Filtre `userId` (fonctionnel)** : `GET /orders?userId=N` filtre par égalité stricte (`order.userId === N`). Paramètre converti en nombre entier avant comparaison. Si `userId` n'existe pas (ex. `userId=99`), retour 200 + `[]` (liste vide, pas erreur 404) — `src/routes/orders.js:14-16`.
-2. **Filtre `active` (inopérant — BUG)** : `GET /orders?active=true` tente d'exclure les commandes annulées via `order.status !== "canceled"`, mais les données portent `"cancelled"` — le filtre ne fonctionne pas. Tous les statuts passent. Documenté comme volontaire — `src/routes/orders.js:18-24`.
-3. **Statuts de commande** : enum implicite = {`"paid"`, `"cancelled"`} (orthographe britannique, double `l`) — `src/routes/orders.js:3-8`.
-4. **Filtres composables** : `userId` et `active` sont indépendants ; si les deux sont présents, `userId` s'applique d'abord, puis `active` sur le sous-ensemble — `src/server.js:22-23`.
-5. **Méthode GET exclusive** : seul `GET` répond sur `/orders`. Autres méthodes → 404.
-6. **Lien utilisateur (non enforced)** : chaque commande lie un `userId` à un utilisateur (données cohérentes), mais aucune vérification ne force cette contrainte dans le code. Un `userId` invalide ne génère pas d'erreur, juste une liste vide.
+1. **Filtre `userId` (fonctionnel)** : `GET /orders?userId=N` filtre par égalité stricte (`order.userId === N`). Paramètre converti en nombre entier avant comparaison. Si `userId` n'existe pas (ex. `userId=99`), retour 200 + `[]` (liste vide, pas erreur 404) — `src/routes/orders.js:16-18`.
+2. **Filtre `active` (fonctionnel depuis CLA-114)** : `GET /orders?active=true` exclut les commandes avec `status === "cancelled"`. Ignoré si `?status=` est aussi fourni (`?status=` prend la main) — `src/routes/orders.js:20-22`, `src/server.js:28`.
+3. **Filtre `status` (nouveau, CLA-66)** : `GET /orders?status=<valeur>` filtre par correspondance exacte sur `order.status`. `?status=canceled` (1 l) normalisé en `"cancelled"` (`src/server.js:24`). Statut inconnu → `[]`. Prioritaire sur `active=true` — `src/routes/orders.js:24-26`, `src/server.js:29`.
+4. **Statuts de commande** : enum implicite = {`"paid"`, `"cancelled"`} (orthographe britannique, double `l`) — `src/routes/orders.js:5-10`.
+5. **Priorité des filtres** : `userId` s'applique en premier, puis `status` (si fourni) ou `active` (si `status` absent) — `src/server.js:26-29`.
+6. **Méthode GET exclusive** : seul `GET` répond sur `/orders`. Autres méthodes → 404.
+7. **Lien utilisateur (non enforced)** : chaque commande lie un `userId` à un utilisateur (données cohérentes), mais aucune vérification ne force cette contrainte dans le code. Un `userId` invalide ne génère pas d'erreur, juste une liste vide.
 
 ## Données
 
@@ -206,7 +219,7 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 - **Persistance** : pas de base de données, données intégralement en RAM
 - **Validation d'entrée** : les paramètres de requête ne sont pas validés (ex. `userId=abc` → `NaN` silencieux)
 - **Gestion d'erreur** : aucun `try/catch` global, pas de codes d'erreur HTTP variés (que 200 et 404)
-- **Filtre `active=true`** : **déclaré inopérant par bug volontaire**
+- **Filtre `active=true`** : fonctionnel depuis CLA-114 (bug orthographique corrigé)
 
 ### Inachevé (code présent, non câblé)
 
@@ -229,4 +242,4 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 
 **Modèle de données** : src/routes/users.js:3-7, src/routes/orders.js:3-8
 
-**Bug volontaire** : src/routes/orders.js:18-24, test/orders.test.js:5-19, README.md:9
+**Filtres commandes** : src/routes/orders.js:20-26, src/server.js:21-29, test/orders.test.js (tests verts filterActiveOrders, filterByStatus, ?status=, alias canceled)

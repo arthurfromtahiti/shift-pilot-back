@@ -19,7 +19,7 @@ shift-pilot-back/
 ├── README.md             [déclaration pilote SHIFT]
 ```
 
-**3 fichiers source, 1 fichier de test, zéro dépendance externe** (`node:http` et `node:url` de la stdlib uniquement).
+**3 fichiers source, 1 fichier de test, 1 dépendance externe** : `lodash ^4.17.15` (utilisé dans `src/routes/orders.js` via `_.sortBy`).
 
 ## Domaines et fichiers
 
@@ -44,8 +44,8 @@ shift-pilot-back/
 | Route HTTP | GET /users | server.js:14-16 | `GET /users` → `listUsers()` → JSON 200 |
 
 **Points critiques**
-- **Imports morts** : `getUserById` importé ligne 3 de server.js mais non appelé — signal d'une future route `/users/:id` non câblée.
-- **Exports morts** : `isAdmin` exporté ligne 21 de users.js, jamais consommé — squelette d'autorisation déconnecté.
+- **Import mort** : `getUserById` importé ligne 3 de server.js mais aucune route ne l'appelle — signal d'une future route `/users/:id` non câblée.
+- **Export mort** : `isAdmin` exporté ligne 21 de users.js, jamais consommé — squelette d'autorisation déconnecté.
 - **Données brutes en réponse** : champ `role` exposé sans contrôle d'accès (src/routes/users.js:4-6, src/server.js:14-16).
 
 ### Domaine : `commandes` (métier, priorité cœur)
@@ -62,12 +62,13 @@ shift-pilot-back/
 
 | Élément | Type | Ligne(s) | Détail |
 |---------|------|----------|--------|
-| `orders` | Data (const array) | 3-8 | Tableau littéral, 4 objets `{id, userId, total, status}`. Statut ∈ {`"paid"`, `"cancelled"`} (double l). |
-| `listOrders()` | Function export | 10-12 | Retourne `orders` complet. |
-| `getOrdersByUser(userId)` | Function export | 14-16 | Filtre par `order.userId === userId`. Fonctionne correctement. |
-| `filterActiveOrders(orders)` | Function export | 22-24 | **BUG VOLONTAIRE** : compare `order.status !== "canceled"` (un seul l) alors que données portent `"cancelled"`. Ne filtre rien. |
-| Commentaire bug | Marker | 18-21 | Documente l'intention du bug (exemple volontaire pour le pilote). |
-| Route HTTP | GET /orders | server.js:18-26 | `GET /orders` avec params optionnels `userId`, `active` → JSON 200 |
+| `_` | Import (lodash) | 3 | `const _ = require("lodash")`. Utilisé uniquement dans `listOrders()`. |
+| `orders` | Data (const array) | 5-10 | Tableau littéral, 4 objets `{id, userId, total, status}`. Statut ∈ {`"paid"`, `"cancelled"`} (double l). |
+| `listOrders()` | Function export | 12-14 | Retourne `_.sortBy(orders, "id")` — tri stable par id croissant. |
+| `getOrdersByUser(userId)` | Function export | 16-18 | Filtre par `order.userId === userId`. Fonctionne correctement. |
+| `filterActiveOrders(orderList)` | Function export | 20-22 | Exclut les commandes dont `status === "cancelled"`. Corrigé — fonctionne correctement. |
+| `filterByStatus(orderList, status)` | Function export | 24-26 | Filtre exact sur `order.status === status`. Nouveau filtre introduit par CLA-66. |
+| Route HTTP | GET /orders | server.js:18-32 | `GET /orders` avec params optionnels `userId`, `active`, `status` → JSON 200 |
 
 **Composition des filtres** (`src/server.js:22-23`)
 ```
@@ -77,8 +78,8 @@ shift-pilot-back/
 ```
 
 **Points critiques**
-- **`src/routes/orders.js:23`** : zone de correction du bug. `"canceled"` doit devenir `"cancelled"` (ou aligner les données).
-- **Données mismatch** : enum `status` défini avec `"cancelled"` (British English) mais comparé contre `"canceled"` (American English). Cause directe du filtre inopérant.
+- **Alias orthographique** : le paramètre `?status=canceled` (1 l, anglais américain) est normalisé en `"cancelled"` côté serveur (`src/server.js:24`) — les deux orthographes acceptées en entrée.
+- **Priorité des filtres** : `?status=` prend la main sur `?active=true` si les deux sont fournis (`src/server.js:28-29`).
 - **Validation d'entrée absente** : `userId=abc` → `NaN` silencieux, pas d'erreur 400.
 
 ### Domaine : `api-http-routage` (technique, priorité support)
@@ -95,17 +96,16 @@ shift-pilot-back/
 | Élément | Type | Ligne(s) | Détail |
 |---------|------|----------|--------|
 | `sendJson(res, code, data)` | Function | 6-9 | Écrit en-têtes + sérialise JSON. Code réutilisable. |
-| Dispatcher | if-else block | 11-36 | Parse `req.url`, teste méthode+chemin, délègue ou retourne 404. |
-| `new URL(req.url, ...)` | URL parsing | 12 | Parse relative à une base vide — fonctionne pour chemin + query string. |
+| Dispatcher | if-else block | 11-35 | Parse `req.url`, teste méthode+chemin, délègue ou retourne 404. |
+| `new URL(req.url, ...)` | URL parsing | 12 | Parse relative à `http://${req.headers.host}` — préserve chemin + query string. |
 | Routes GET /users | if-block | 14-16 | Branchement `→ listUsers()`. |
-| Routes GET /orders | if-block | 18-26 | Branchement + orchestration filtres (userId, activeOnly). **Ici que la logique métier est composée.** |
-| Routes GET /orders/:id | if-block | 28-33 | Match exact via regex `/^\/orders\/[^/]+$/`. Lookup par id entier → 200+JSON ou 404. |
-| Fallback 404 | if-block | 35 | Tout ce qui ne match pas → 404 + `{error: "Not found"}`. |
-| `require.main === module` | Conditional | 32-36 | Démarre le serveur uniquement si invoqué directement (pas si importé en test). |
-| `module.exports = server` | Export | 38 | Permet d'importer le serveur en test et de le décorer (ex. faire des requêtes HTTP). |
+| Routes GET /orders | if-block | 18-32 | Branchement + orchestration filtres (userId, active, status). `status` prime sur `active`. **C'est ici que la logique métier est composée.** |
+| Fallback 404 | if-block | 34 | Tout ce qui ne match pas → 404 + `{error: "Not found"}`. |
+| `require.main === module` | Conditional | 38-42 | Démarre le serveur uniquement si invoqué directement (pas si importé en test). |
+| `module.exports = server` | Export | 44 | Permet d'importer le serveur en test et de le décorer (ex. faire des requêtes HTTP). |
 
 **Points critiques**
-- **Multi-responsabilité** : parsing HTTP + routage + orchestration métier dans un seul fichier. Acceptable à 38 lignes. Debt dès la 4ème-5ème route ajoutée.
+- **Multi-responsabilité** : parsing HTTP + routage + orchestration métier dans un seul fichier. Acceptable à 44 lignes. Debt dès la 4ème-5ème route ajoutée.
 - **Aucun middleware transverse** : pas de try/catch global, pas de middleware d'erreur. Une exception non attrapée crasherait le processus sans réponse HTTP.
 - **Seul point de modification pour toute évolution fonctionnelle** : ajouter une route, un paramètre, un filtre passe obligatoirement par ce fichier.
 
@@ -116,22 +116,21 @@ shift-pilot-back/
 | Méthode | Chemin | Code | Domaine | Comportement |
 |---------|--------|------|---------|---|
 | GET | `/users` | server.js:14-16 | utilisateurs | Retourne annuaire complet (200 + JSON) |
-| GET | `/orders` | server.js:18-26 | commandes | Retourne commandes, filtres optionnels userId/active |
-| GET | `/orders/:id` | server.js:28-33 | commandes | Retourne la commande par ID (200+JSON) ou 404. Match exact (pas de sous-chemins). |
-| (any) | (autre) | server.js:35 | — | 404 + `{error: "Not found"}` |
+| GET | `/orders` | server.js:18-32 | commandes | Retourne commandes ; filtres optionnels `userId`, `active`, `status` (`status` prime sur `active`) |
+| (any) | (autre) | server.js:34 | — | 404 + `{error: "Not found"}` |
 
 ### Exports du système (pour test/import)
 
 | Export | Fichier | Usage |
 |--------|---------|-------|
 | `listUsers()` | users.js:9-11 | Exposé via GET /users. Importé : server.js:3. |
-| `getUserById(id)` | users.js:13-15 | Importé : server.js:3. **Jamais appelé.** |
-| `isAdmin(user)` | users.js:17-19 | Exporté line 21. **Jamais importé.** |
-| `listOrders()` | orders.js:10-12 | Utilisé via GET /orders sans filtre. Importé : server.js:4. |
-| `getOrdersByUser(id)` | orders.js:14-16 | Utilisé par GET /orders?userId=. Importé : server.js:4. |
-| `filterActiveOrders(orders)` | orders.js:22-24 | Utilisé par GET /orders?active=true (défaillant). Importé : server.js:4. |
-| `getOrderById(id)` | orders.js:26-28 | Utilisé par GET /orders/:id. Lookup par `===` sur id entier. Importé : server.js:4. |
-| `server` (http.Server) | server.js:45 | Exporté pour import en test. |
+| `getUserById(id)` | users.js:13-15 | Importé : server.js:3. **Jamais appelé** (route /users/:id non câblée). |
+| `isAdmin(user)` | users.js:17-19 | Exporté ligne 21. **Jamais importé.** |
+| `listOrders()` | orders.js:12-14 | Utilisé via GET /orders sans filtre. Retourne les commandes triées par id. Importé : server.js:4. |
+| `getOrdersByUser(id)` | orders.js:16-18 | Utilisé par GET /orders?userId=. Importé : server.js:4. |
+| `filterActiveOrders(orderList)` | orders.js:20-22 | Utilisé par GET /orders?active=true. Exclut les commandes `"cancelled"`. Importé : server.js:4. |
+| `filterByStatus(orderList, status)` | orders.js:24-26 | Utilisé par GET /orders?status=. Filtre exact par statut. Importé : server.js:4. |
+| `server` (http.Server) | server.js:44 | Exporté pour import en test. |
 
 ## Fichiers critiques (hotspots d'évolution)
 
@@ -150,14 +149,14 @@ shift-pilot-back/
 - Pas de structure de routage (map, router explicite)
 - Composition métier (lignes 22-23) reste libre — pas de pattern déclaratif
 
-### 2. `src/routes/orders.js:23` (hotspot secondaire — bug)
+### 2. `src/routes/orders.js` (hotspot secondaire — filtres)
 
-**Criticité** : moyenne. Correction volontaire du bug pilote.
+**Criticité** : moyenne. Évolution fonctionnelle principale du filtre commandes.
 
-**Changement attendu**
-- Remplacer `"canceled"` par `"cancelled"` (ou aligner données sur `"canceled"`)
+**État actuel** : bug `filterActiveOrders` corrigé (CLA-114). Nouveau filtre `filterByStatus` ajouté (CLA-66). lodash utilisé pour le tri.
 
-**Impact** : test `test/orders.test.js:14` passera au vert.
+**Changements attendus**
+- Ajout d'un filtre par statut supplémentaire → nouvelle fonction + branchement dans server.js
 
 ### 3. `src/routes/users.js:3,17-19` (hotspot secondaire — imports morts)
 
@@ -175,12 +174,12 @@ Aucune. Tous les fichiers source ont été lus intégralement.
 
 ## Preuves
 
-**Architecture générale** : src/server.js:1-38 (lu intégralement, 38 lignes)
+**Architecture générale** : src/server.js:1-44 (lu intégralement, 44 lignes)
 
 **Domaine utilisateurs** : src/routes/users.js:1-21 (lu intégralement, 21 lignes)
 
-**Domaine commandes** : src/routes/orders.js:1-26 (lu intégralement, 26 lignes)
+**Domaine commandes** : src/routes/orders.js:1-29 (lu intégralement, 29 lignes — inclut lodash et filterByStatus)
 
-**Package** : package.json (lu intégralement, zéro dépendances)
+**Package** : package.json (lodash ^4.17.15, engines node>=18)
 
-**Test** : test/orders.test.js:1-19 (lu intégralement, test rouge documentant le bug)
+**Tests** : test/orders.test.js (tests verts : filterActiveOrders, filterByStatus, ?status=, ?status=canceled, priorité status>active)

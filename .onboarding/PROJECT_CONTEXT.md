@@ -30,12 +30,14 @@
 
 **Rôle** : gestion et filtrage des commandes par utilisateur et statut.
 
-**État** : ⚠️ **Partiellement défaillant**. Le filtre `?active=true` ne fonctionne pas (bug volontaire, documenté).
+**État** : ✅ **Fonctionnel**. Filtres `?userId=N`, `?active=true`, et `?status=<valeur>` opérationnels. Bug `filterActiveOrders` corrigé (CLA-114).
 
 **Attention** :
-- 🐛 **Bug volontaire** : `filterActiveOrders` compare `status !== "canceled"` (un seul `l`) alors que données portent `"cancelled"` (double `l`). Toutes les commandes passent le filtre, y compris les annulées.
-- ✅ Filtre `?userId=N` fonctionne correctement.
+- ✅ Filtre `?active=true` corrigé — exclut correctement les commandes `"cancelled"`.
+- ✅ Filtre `?status=` ajouté (CLA-66) — filtre exact par statut ; `?status=canceled` (1 l) normalisé en `"cancelled"`.
+- ⚠️ Priorité : `?status=` prime sur `?active=true` si les deux sont fournis.
 - 📋 Pas de validation d'entrée : `userId=abc` → `NaN` silencieux, retour 200 + [].
+- 📋 lodash utilisé pour le tri dans `listOrders()` (`_.sortBy`).
 
 ### 3. API HTTP & Routage (technique, support)
 
@@ -51,12 +53,12 @@
 ## Chiffres
 
 - **3 fichiers source** (src/server.js, src/routes/users.js, src/routes/orders.js)
-- **2 routes HTTP** GET /users, GET /orders
+- **2 routes HTTP** GET /users, GET /orders (avec filtres userId, active, status)
 - **0 routes d'écriture** (POST/PUT/PATCH/DELETE)
-- **0 dépendances externes** (node:http et node:url de stdlib uniquement)
+- **1 dépendance externe** : `lodash ^4.17.15` (tri dans listOrders)
 - **3 utilisateurs** en données de démo
 - **4 commandes** en données de démo (2 payées, 2 annulées)
-- **1 bug volontaire** (filtre `active=true` inopérant)
+- **0 bug volontaire** actif (bug `filterActiveOrders` corrigé, CLA-114)
 - **2 fonctionnalités esquissées, non câblées** (getUserById, isAdmin)
 
 ## Matière pour agents IA et développeurs
@@ -65,14 +67,14 @@
 
 - **Règles à ne pas casser** : structure de data en tableaux `src/routes/*.js`, points d'entrée HTTP `GET /users` et `GET /orders` non supprimés.
 - **Périmètre fonctionnel** : deux ressources métier, lecture seule, aucune persistance.
-- **Bug volontaire** : le mismatch `"canceled"` / `"cancelled"` est intentionnel et documenté — ne pas "corriger" sans vérifier les intentions du board.
+- **Filtre status** : `?status=canceled` (1 l) est normalisé en `"cancelled"` dans server.js:24 — les deux orthographes sont des alias valides.
 
 ### Pour un nouveau développeur
 
 - **Démarrage** : lire README.md (déclaration de pilot), puis ce contexte, puis CDC_FONCTIONNEL.md pour les règles métier.
 - **Cartographie** : consulter CARTOGRAPHIE_CODE.md pour trouver un fichier, comprendre l'architecture plate, identifier les hotspots.
 - **Test** : voir CAHIER_RECETTE.md pour les parcours à tester.
-- **Points chauds** : src/server.js (dispatcher unique), src/routes/orders.js:23 (bug), imports morts (users.js:3 et getUserById).
+- **Points chauds** : src/server.js (dispatcher unique, filtres composés), src/routes/orders.js (filterByStatus, lodash), imports morts (getUserById dans server.js:3, isAdmin dans users.js).
 
 ## Décisions en suspens
 
@@ -82,8 +84,8 @@
 2. **Contrôle d'accès `isAdmin`** : faut-il câbler un contrôle d'accès, ou retirer le squelette ?
    - Statut : non tranchée. Impacte si `isAdmin` est le début d'une réelle gouvernance ou doit être supprimé.
 
-3. **Orthographe du statut annulé** : `"cancelled"` (données) ou `"canceled"` (comparaison) ?
-   - Statut : non tranchée. Le bug volontaire documenterait cette intention si elle était explicitée — alignement données ou comparaison ?
+3. **Orthographe du statut annulé** : ~~`"cancelled"` (données) ou `"canceled"` (comparaison) ?~~
+   - Statut : **résolu** (CLA-114). Les données et la logique utilisent `"cancelled"` (double l). `"canceled"` accepté en entrée HTTP via normalisation dans server.js:24.
 
 4. **Validation d'entrée** : ajouter des 400 Bad Request pour `userId` non-entier ?
    - Statut : non tranchée. Actuellement `userId=abc` → 200 + [] silencieux — faut-il signaler l'erreur ?
@@ -99,10 +101,10 @@ Tous les constats sont `VÉRIFIÉ_CODE` (lus dans le source). Le serveur n'a jam
 | 3 fichiers source | listing du projet, lecture intégrales |
 | 0 dépendance externe | package.json |
 | 2 routes HTTP GET | src/server.js:14-26 |
-| Bug volontaire documenté | src/routes/orders.js:18-24, README.md:9, test/orders.test.js:5-19 |
+| Bug filterActiveOrders corrigé | src/routes/orders.js:20-22 (CLA-114) |
 | Imports morts | src/server.js:3 (getUserById), src/routes/users.js:21 (isAdmin export) |
 | 3 utilisateurs, 4 commandes | src/routes/users.js:3-7, src/routes/orders.js:3-8 |
-| Pattern `require.main === module` | src/server.js:32-36 |
+| Pattern `require.main === module` | src/server.js:38-42 |
 
 ## Pour continuer
 
