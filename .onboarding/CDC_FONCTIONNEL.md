@@ -77,13 +77,13 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 4. `activeOnly === false` → pas d'appel à `filterActiveOrders` (la réponse retournée directement `src/server.js:25`)
 5. Réponse : statut 200 + tableau JSON
 
-**Résultat** : 4 commandes (toutes, incluses les annulées)
+**Résultat** : 4 commandes (toutes, incluses les annulées, enrichies avec `totalXpf`)
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid" },
-  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled" },
-  { "id": 103, "userId": 3, "total": 9600, "status": "paid" },
-  { "id": 104, "userId": 3, "total": 3000, "status": "cancelled" }
+  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 },
+  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "totalXpf": 18 },
+  { "id": 103, "userId": 3, "total": 9600, "status": "paid", "totalXpf": 96 },
+  { "id": 104, "userId": 3, "total": 3000, "status": "cancelled", "totalXpf": 30 }
 ]
 ```
 
@@ -99,11 +99,11 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 5. Résultat : 2 commandes (101 et 102, toutes de Teiki)
 6. Pas d'appel `filterActiveOrders` → tableau retourné tel quel
 
-**Résultat** : commandes de l'utilisateur 2 (y compris annulée)
+**Résultat** : commandes de l'utilisateur 2 (y compris annulée, enrichies avec `totalXpf`)
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid" },
-  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled" }
+  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 },
+  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "totalXpf": 18 }
 ]
 ```
 
@@ -119,9 +119,15 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 5. `filterActiveOrders` compare `order.status !== "canceled"` (orthographe US — BUG) (`src/routes/orders.js:23`)
    - Commande 101 : `"paid" !== "canceled"` → true, passe
    - Commande 102 : `"cancelled" !== "canceled"` → true, **PASSE AUSSI** (orthographe ne match pas)
-6. Résultat retourné : [101, 102]
+6. Résultat retourné : [101, 102] enrichis avec `totalXpf`
 
 **Ce qui est reçu** : **les deux commandes incluant l'annulée** — **comportement incorrect**. Le bug n'a pas été corrigé.
+```json
+[
+  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 },
+  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "totalXpf": 18 }
+]
+```
 
 #### Variante 2d — Commandes actives globales
 
@@ -133,7 +139,15 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 3. `listOrders()` → [101, 102, 103, 104] (tri par id)
 4. `filterActiveOrders([...])` → exclut 102 et 104 (`"cancelled"`)
 
-**Résultat reçu** : **4 commandes (y compris les annulées)** — **COMPORTEMENT INCORRECT** car `filterActiveOrders()` compare `order.status !== "canceled"` (orthographe US) alors que les données portent `"cancelled"` (orthographe GB). Aucune commande n'est exclue. Bug volontaire du pilote.
+**Résultat reçu** : **4 commandes (y compris les annulées), enrichies avec `totalXpf`** — **COMPORTEMENT INCORRECT** car `filterActiveOrders()` compare `order.status !== "canceled"` (orthographe US) alors que les données portent `"cancelled"` (orthographe GB). Aucune commande n'est exclue. Bug volontaire du pilote.
+```json
+[
+  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 },
+  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "totalXpf": 18 },
+  { "id": 103, "userId": 3, "total": 9600, "status": "paid", "totalXpf": 96 },
+  { "id": 104, "userId": 3, "total": 3000, "status": "cancelled", "totalXpf": 30 }
+]
+```
 
 ### Parcours 3 — Tentative d'accès refusé ou mal formé
 
@@ -192,6 +206,8 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 **Persistance** : aucune. Redémarrage = réinitialisation.
 
 **Intégrité `userId`** : cohérence vérifiée manuellement. IDs 2 et 3 correspondent à des utilisateurs existants. Aucune FK enforced.
+
+**Enrichissement à la sérialisation** : chaque objet commande retourné par `GET /orders` (tous paramètres) est enrichi avec `totalXpf: Math.round(total / 100)` au moment de `sendJson()` dans `src/server.js:25`. Valeurs pour les données de démo : id 101 → 42, id 102 → 18, id 103 → 96, id 104 → 30. Le champ n'est pas stocké dans `src/routes/orders.js`.
 
 ## Délimitations honnêtes
 
