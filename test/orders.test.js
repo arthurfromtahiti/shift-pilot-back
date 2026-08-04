@@ -163,3 +163,29 @@ test("filterByStatus filters orders by exact status match", () => {
   );
   assert.deepEqual(filterByStatus(sample, "unknown"), []);
 });
+
+// CLA-226 — tri par date createdAt
+test("GET /orders?sort=date_asc retourne les commandes en ordre croissant de createdAt", async () => {
+  const result = await get("/orders?sort=date_asc");
+  const ids = result.map((o) => o.id);
+  assert.deepEqual(ids, [101, 102, 103, 104], "date_asc doit retourner 101 < 102 < 103 < 104");
+});
+
+test("GET /orders?sort=date_desc retourne les commandes en ordre décroissant de createdAt", async () => {
+  const result = await get("/orders?sort=date_desc");
+  const ids = result.map((o) => o.id);
+  assert.deepEqual(ids, [104, 103, 102, 101], "date_desc doit retourner 104 > 103 > 102 > 101");
+});
+
+// CLA-226 — filtrage par plage de dates
+test("GET /orders?from=2024-02-01&to=2024-03-31 retourne uniquement id102 et id103", async () => {
+  const result = await get("/orders?from=2024-02-01&to=2024-03-31");
+  const ids = result.map((o) => o.id).sort((a, b) => a - b);
+  assert.deepEqual(ids, [102, 103], "la plage fév–mars doit inclure uniquement id102 et id103");
+});
+
+// CLA-226 — sort invalide ignoré silencieusement
+test("GET /orders?sort=invalide retourne toutes les commandes sans erreur", async () => {
+  const result = await get("/orders?sort=invalide");
+  assert.equal(result.length, 4, "un sort invalide ne doit pas provoquer d'erreur ni filtrer de commandes");
+});

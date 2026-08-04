@@ -28,6 +28,9 @@ const server = http.createServer((req, res) => {
     const userIdParam = url.searchParams.get("userId");
     const activeOnly = url.searchParams.get("active") === "true";
     const statusParam = url.searchParams.get("status");
+    const sortParam = url.searchParams.get("sort");
+    const fromParam = url.searchParams.get("from");
+    const toParam = url.searchParams.get("to");
 
     // "canceled" (American, 1 l) is an alias for the canonical "cancelled" stored in data
     const normalizedStatus = statusParam === "canceled" ? "cancelled" : statusParam;
@@ -36,6 +39,14 @@ const server = http.createServer((req, res) => {
     // explicit status wins over active-only: the two filters are semantically contradictory
     if (activeOnly && normalizedStatus === null) result = filterActiveOrders(result);
     if (normalizedStatus !== null) result = filterByStatus(result, normalizedStatus);
+
+    // date range filter — YYYY-MM-DD compared against createdAt ISO string
+    if (fromParam) result = result.filter((o) => o.createdAt >= fromParam + "T00:00:00Z");
+    if (toParam) result = result.filter((o) => o.createdAt <= toParam + "T23:59:59Z");
+
+    // date sort — unknown sort values are silently ignored, no mutation of source array
+    if (sortParam === "date_asc") result = [...result].sort((a, b) => a.createdAt < b.createdAt ? -1 : 1);
+    else if (sortParam === "date_desc") result = [...result].sort((a, b) => a.createdAt > b.createdAt ? -1 : 1);
 
     return sendJson(res, 200, result.map((o) => {
       const user = getUserById(o.userId);
