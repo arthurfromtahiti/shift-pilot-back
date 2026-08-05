@@ -3,7 +3,7 @@ const { URL } = require("node:url");
 
 const { listUsers, getUserById } = require("./routes/users");
 
-const { listOrders, getOrdersByUser, filterActiveOrders, filterByStatus, DEFAULT_CURRENCY } = require("./routes/orders");
+const { listOrders, getOrdersByUser, filterActiveOrders, getOrderById, filterByStatus, DEFAULT_CURRENCY } = require("./routes/orders");
 
 function sendJson(res, status, body) {
   res.writeHead(status, { "Content-Type": "application/json" });
@@ -53,6 +53,13 @@ const server = http.createServer((req, res) => {
       const user = getUserById(o.userId);
       return { ...o, clientName: user ? user.name : null, currency: DEFAULT_CURRENCY };
     }));
+  }
+
+  const orderByIdMatch = req.method === "GET" && /^\/orders\/(\d+)$/.exec(url.pathname);
+  if (orderByIdMatch) {
+    const order = getOrderById(Number(orderByIdMatch[1]));
+    if (order === null) return sendJson(res, 404, { error: "Not found" });
+    return sendJson(res, 200, order);
   }
 
   sendJson(res, 404, { error: "Not found" });

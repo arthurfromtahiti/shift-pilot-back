@@ -38,6 +38,24 @@ function get(path) {
   });
 }
 
+// Helper: returns { status, body } for assertions on HTTP status codes
+function getWithStatus(path) {
+  return new Promise((resolve, reject) => {
+    server.listen(0, () => {
+      const port = server.address().port;
+      http.get(`http://localhost:${port}${path}`, (res) => {
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
+          server.close(() => resolve({ status: res.statusCode, body: JSON.parse(data) }));
+        });
+      }).on("error", (err) => {
+        server.close(() => reject(err));
+      });
+    });
+  });
+}
+
 test("GET /orders without ?status returns all orders", async () => {
   const result = await get("/orders");
   assert.equal(result.length, 4, "all 4 orders must be returned when no status filter is provided");
@@ -230,4 +248,17 @@ test("GET /orders retourne currency='XPF' sur chaque commande", async () => {
     result.every((o) => o.currency === "XPF"),
     "chaque commande doit exposer currency='XPF'",
   );
+});
+
+// CLA-310 — GET /orders/:id
+test("GET /orders/101 retourne 200 et la commande correspondante", async () => {
+  const { status, body } = await getWithStatus("/orders/101");
+  assert.equal(status, 200, "doit retourner 200 si la commande existe");
+  assert.equal(body.id, 101, "la commande retournée doit avoir l'id 101");
+});
+
+test("GET /orders/:id avec id inexistant retourne 404 et { error: 'Not found' }", async () => {
+  const { status, body } = await getWithStatus("/orders/9999");
+  assert.equal(status, 404, "doit retourner 404 si la commande n'existe pas");
+  assert.deepEqual(body, { error: "Not found" });
 });
