@@ -39,7 +39,7 @@ shift-pilot-back/
 |---------|------|----------|--------|
 | `users` | Data (const array) | 3-7 | Tableau littéral, 3 objets `{id, name, email, role}`. Données figées en mémoire. |
 | `listUsers()` | Function export | 9-11 | Retourne `users` complet. Aucun paramètre, aucun filtre. |
-| `getUserById(id)` | Function export | 13-15 | Lookup par ID via `find()`. Importée dans server.js:4. Appelée par GET /users/:id (server.js:22) et par GET /orders (server.js:53) pour enrichir chaque commande avec `clientName` (CLA-187). |
+| `getUserById(id)` | Function export | 13-15 | Lookup par ID via `find()`. Importée dans server.js:4. Appelée par GET /users/:id (server.js:22) et par GET /orders (server.js:53) pour enrichir chaque commande avec `clientName` et `clientEmail` (CLA-187, SHIAAAAAAAAAAAAAAAAAAAAAAAA-240). |
 | `isAdmin(user)` | Function export | 17-19 | Prédicat : `user !== null && user.role === "admin"`. Exportée, jamais importée. |
 | Route HTTP | GET /users | server.js:16-17 | `GET /users` → `listUsers()` → JSON 200 |
 | Route HTTP | GET /users/:id | server.js:20-25 | `GET /users/:id` → `getUserById(id)` → JSON 200 / 404 si absent (CLA-187) |
@@ -81,7 +81,7 @@ shift-pilot-back/
 5. Si status fourni → filterByStatus(result, status)
 6. Si from/to fournis (format YYYY-MM-DD valide) → filtre par plage de dates sur createdAt (CLA-186)
 7. Si sort=date_asc → tri croissant par createdAt ; sort=date_desc → tri décroissant (CLA-186)
-8. Enrichir chaque commande avec clientName via getUserById() (server.js:54-56, CLA-187)
+8. Enrichir chaque commande avec clientName et clientEmail via getUserById() (server.js:54-56, CLA-187, SHIAAAAAAAAAAAAAAAAAAAAAAAA-240)
 9. Si customerName fourni → filterByCustomerName(enriched, customerName) (server.js:58, SHIAAAAAAAAAAAAAAAAAAAAAAAA-7)
 10. Retourner result
 ```
@@ -109,7 +109,7 @@ shift-pilot-back/
 | `new URL(req.url, ...)` | URL parsing | 14 | Parse relative à `http://${req.headers.host}` — préserve chemin + query string. |
 | Routes GET /users | if-block | 16-17 | Branchement `→ listUsers()`. |
 | Routes GET /users/:id | if-block | 20-25 | Lookup par ID via `getUserById()` ; retourne 404 si absent (CLA-187). |
-| Routes GET /orders | if-block | 27-56 | Branchement + orchestration filtres (userId, active, status, from, to, sort). Tri et filtre par date ajoutés en CLA-186. Chaque commande enrichie avec `clientName` via `getUserById()` (server.js:52-54, CLA-187). **C'est ici que la logique métier est composée.** |
+| Routes GET /orders | if-block | 27-56 | Branchement + orchestration filtres (userId, active, status, from, to, sort). Tri et filtre par date ajoutés en CLA-186. Chaque commande enrichie avec `clientName` et `clientEmail` via `getUserById()` (server.js:52-54, CLA-187, SHIAAAAAAAAAAAAAAAAAAAAAAAA-240). **C'est ici que la logique métier est composée.** |
 | Fallback 404 | if-block | 58 | Tout ce qui ne match pas → 404 + `{error: "Not found"}`. |
 | `require.main === module` | Conditional | 62-66 | Démarre le serveur uniquement si invoqué directement (pas si importé en test). |
 | `module.exports = server` | Export | 68 | Permet d'importer le serveur en test et de le décorer (ex. faire des requêtes HTTP). |
@@ -127,7 +127,7 @@ shift-pilot-back/
 |---------|--------|------|---------|---|
 | GET | `/users` | server.js:16-17 | utilisateurs | Retourne annuaire complet (200 + JSON) |
 | GET | `/users/:id` | server.js:20-25 | utilisateurs | Retourne utilisateur par ID (200) ou 404 si absent (CLA-187) |
-| GET | `/orders` | server.js:27-61 | commandes | Retourne commandes filtrées et enrichies avec clientName (userId, active, status, from, to, sort, customerName) |
+| GET | `/orders` | server.js:27-61 | commandes | Retourne commandes filtrées et enrichies avec clientName et clientEmail (userId, active, status, from, to, sort, customerName) |
 | (any) | (autre) | server.js:58 | — | 404 + `{error: "Not found"}` |
 
 ### Exports du système (pour test/import)
@@ -135,7 +135,7 @@ shift-pilot-back/
 | Export | Fichier | Usage |
 |--------|---------|-------|
 | `listUsers()` | users.js:9-11 | Exposé via GET /users. Importé : server.js:4. |
-| `getUserById(id)` | users.js:13-15 | Importé : server.js:4. Appelé par GET /users/:id (server.js:22) et GET /orders (server.js:54) pour enrichir chaque commande avec clientName (CLA-187). |
+| `getUserById(id)` | users.js:13-15 | Importé : server.js:4. Appelé par GET /users/:id (server.js:22) et GET /orders (server.js:54) pour enrichir chaque commande avec clientName et clientEmail (CLA-187, SHIAAAAAAAAAAAAAAAAAAAAAAAA-240). |
 | `isAdmin(user)` | users.js:17-19 | Exporté ligne 21. **Jamais importé.** |
 | `listOrders()` | orders.js:14-16 | Utilisé via GET /orders sans filtre. Retourne les commandes triées par id. Importé : server.js:6. |
 | `getOrdersByUser(id)` | orders.js:18-20 | Utilisé par GET /orders?userId=. Importé : server.js:6. |
@@ -175,7 +175,7 @@ shift-pilot-back/
 
 **Criticité** : faible. Décision produit requise.
 
-**État actuel** : `getUserById` est **utilisée** dans GET /users/:id (server.js:22) et dans GET /orders (server.js:53) pour enrichir avec clientName (CLA-187). `isAdmin` reste un export mort.
+**État actuel** : `getUserById` est **utilisée** dans GET /users/:id (server.js:22) et dans GET /orders (server.js:53) pour enrichir avec clientName et clientEmail (CLA-187, SHIAAAAAAAAAAAAAAAAAAAAAAAA-240). `isAdmin` reste un export mort.
 
 **Options restantes**
 - (a) Câbler contrôle d'accès (utiliser `isAdmin`)

@@ -31,9 +31,14 @@
 - `id` : identifiant unique (nombre ou chaîne)
 - `total` : montant (entier)
 - `status` : état (chaîne)
+- `createdAt` : timestamp ISO de création
+- `userId` : identifiant du propriétaire
+- `clientName` : nom du client résolu via `getUserById(userId)` (enrichissement, `null` si utilisateur absent)
+- `clientEmail` : email du client résolu via `getUserById(userId)` (enrichissement, `null` si utilisateur absent)
+- `currency` : devise (ex. `"XPF"`, défaut `DEFAULT_CURRENCY`)
 
-**Preuves côté backend** : `src/routes/orders.js:3-8` (données définies), `src/server.js:25` (sérialisation JSON)  
-**Preuves côté frontend** : `js/app.js:14` (lecture des trois champs), `CDC_FONCTIONNEL.md:94-101` (table des champs)
+**Preuves côté backend** : `src/routes/orders.js:3-8` (données de base), `src/server.js:54-57` (enrichissement clientName et clientEmail via getUserById)  
+**Preuves côté frontend** : `js/app.js:14` (lecture des champs de base), `CDC_FONCTIONNEL.md:162-180` (enrichissement détaillé)
 
 ### Traitement côté frontend
 
