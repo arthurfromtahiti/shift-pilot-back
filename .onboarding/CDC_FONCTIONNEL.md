@@ -159,11 +159,11 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 2. Lecture de tous les paramètres de requête, dont `customerName = "teiki"` (`src/server.js:34`)
 3. Pas de filtre `userId` → appel `listOrders()` → [101, 102, 103, 104]
 4. Appels de filtres optionnels : aucun (pas de `active`, `status`, `from`, `to`) → résultat inchangé
-5. Enrichissement : chaque commande enrichie avec `clientName` résolu via `getUserById(userId)` (`src/server.js:53-56`)
-   - Commande 101 : `userId=2` → `clientName="Teiki"`
-   - Commande 102 : `userId=2` → `clientName="Teiki"`
-   - Commande 103 : `userId=3` → `clientName="Manoa"`
-   - Commande 104 : `userId=3` → `clientName="Manoa"`
+5. Enrichissement : chaque commande enrichie avec `clientName` et `clientEmail` résolus via `getUserById(userId)` (`src/server.js:53-56`) ; `clientEmail` est `null` si l'utilisateur n'existe pas
+   - Commande 101 : `userId=2` → `clientName="Teiki"`, `clientEmail="teiki@example.pf"`
+   - Commande 102 : `userId=2` → `clientName="Teiki"`, `clientEmail="teiki@example.pf"`
+   - Commande 103 : `userId=3` → `clientName="Manoa"`, `clientEmail="manoa@example.pf"`
+   - Commande 104 : `userId=3` → `clientName="Manoa"`, `clientEmail="manoa@example.pf"`
 6. `customerNameParam = "teiki"` est non-null → appel `filterByCustomerName(enriched, "teiki")` (`src/server.js:58`)
 7. `filterByCustomerName()` normalise aiguille et champs :
    - Normalisation : diacritiques supprimés, conversion minuscules (`normalize()`, `src/routes/orders.js:34-36`)
@@ -176,12 +176,12 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 **Résultat** : 2 commandes (101 et 102 de Teiki)
 ```json
 [
-  { "id": 101, "userId": 2, "total": 42, "status": "paid", "createdAt": "2024-01-10T08:00:00Z", "clientName": "Teiki", "currency": "XPF" },
-  { "id": 102, "userId": 2, "total": 18, "status": "cancelled", "createdAt": "2024-02-20T14:30:00Z", "clientName": "Teiki", "currency": "XPF" }
+  { "id": 101, "userId": 2, "total": 42, "status": "paid", "createdAt": "2024-01-10T08:00:00Z", "clientName": "Teiki", "clientEmail": "teiki@example.pf", "currency": "XPF" },
+  { "id": 102, "userId": 2, "total": 18, "status": "cancelled", "createdAt": "2024-02-20T14:30:00Z", "clientName": "Teiki", "clientEmail": "teiki@example.pf", "currency": "XPF" }
 ]
 ```
 
-**Particularité** : le filtre `customerName` est appliqué **après** l'enrichissement (`clientName`). Un `userId` sans utilisateur correspondant (`clientName=null`) est toujours exclu du résultat du filtre, même si aucune aiguille n'est fournie.
+**Particularité** : le filtre `customerName` est appliqué **après** l'enrichissement (`clientName` et `clientEmail`). Un `userId` sans utilisateur correspondant (`clientName=null`) est toujours exclu du résultat du filtre, même si aucune aiguille n'est fournie.
 
 ### Parcours 3 — Tentative d'accès refusé ou mal formé
 
