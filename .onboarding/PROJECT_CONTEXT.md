@@ -55,7 +55,9 @@
 - **3 fichiers source** (src/server.js, src/routes/users.js, src/routes/orders.js)
 - **2 routes HTTP** GET /users, GET /orders (avec filtres userId, active, status)
 - **0 routes d'écriture** (POST/PUT/PATCH/DELETE)
-- **1 dépendance externe** : `lodash ^4.17.15` (tri dans listOrders)
+- **1 dépendance de production** : `lodash ^4.18.1` (tri dans listOrders)
+- **3 devDependencies** : `eslint ^10.8.0`, `@eslint/js ^10.0.1`, `globals ^17.9.0` (qualité du code, lint)
+- **1 script npm** : `npm run lint` (vérifie la qualité du code via ESLint, CLA-79)
 - **3 utilisateurs** en données de démo
 - **4 commandes** en données de démo (2 payées, 2 annulées)
 - **0 bug volontaire** actif (bug `filterActiveOrders` corrigé, CLA-114)
@@ -99,8 +101,9 @@ Tous les constats sont `VÉRIFIÉ_CODE` (lus dans le source). Le serveur n'a jam
 | Affirmation | Preuve |
 |-------------|--------|
 | 3 fichiers source | listing du projet, lecture intégrales |
-| 0 dépendance externe | package.json |
-| 2 routes HTTP GET | src/server.js:14-26 |
+| 1 dépendance production + 3 devDependencies | package.json |
+| Script npm lint | package.json:10, eslint.config.js (config flat, CLA-79) |
+| 2 routes HTTP GET | src/server.js:16-17, 27-56 |
 | Bug filterActiveOrders corrigé | src/routes/orders.js:20-22 (CLA-114) |
 | Imports morts | src/server.js:3 (getUserById), src/routes/users.js:21 (isAdmin export) |
 | 3 utilisateurs, 4 commandes | src/routes/users.js:3-7, src/routes/orders.js:3-8 |
