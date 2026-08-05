@@ -3,7 +3,7 @@ const { URL } = require("node:url");
 
 const { listUsers, getUserById } = require("./routes/users");
 
-const { listOrders, getOrdersByUser, filterActiveOrders, filterByStatus, DEFAULT_CURRENCY } = require("./routes/orders");
+const { listOrders, getOrdersByUser, filterActiveOrders, cancelOrder, filterByStatus, DEFAULT_CURRENCY } = require("./routes/orders");
 
 function sendJson(res, status, body) {
   res.writeHead(status, { "Content-Type": "application/json" });
@@ -53,6 +53,16 @@ const server = http.createServer((req, res) => {
       const user = getUserById(o.userId);
       return { ...o, clientName: user ? user.name : null, currency: DEFAULT_CURRENCY };
     }));
+  }
+
+  const cancelOrderMatch = req.method === "POST" && /^\/orders\/(\d+)\/cancel$/.exec(url.pathname);
+  if (cancelOrderMatch) {
+    const rawUserId = req.headers["x-user-id"];
+    if (!rawUserId) return sendJson(res, 401, { error: "Unauthorized" });
+    const user = getUserById(Number(rawUserId));
+    if (!user || user.role !== "customer") return sendJson(res, 401, { error: "Unauthorized" });
+    const result = cancelOrder(Number(cancelOrderMatch[1]), user);
+    return sendJson(res, result.status, result.body);
   }
 
   sendJson(res, 404, { error: "Not found" });

@@ -7,7 +7,7 @@
 //   3. Corrigé filterActiveOrders pour exclure cancelled_by_client
 //   4. Exporté resetOrders() depuis src/routes/orders.js
 
-const { test, before, after } = require("node:test");
+const { test, beforeEach, after } = require("node:test");
 const assert = require("node:assert/strict");
 const http = require("node:http");
 const server = require("../src/server");
@@ -77,7 +77,7 @@ function get(path, { headers = {} } = {}) {
 
 // Réinitialise les données en mémoire avant et après chaque test qui mute des commandes.
 // Requiert que src/routes/orders.js exporte resetOrders().
-before(resetOrders);
+beforeEach(resetOrders);
 after(resetOrders);
 
 // ---------------------------------------------------------------------------
