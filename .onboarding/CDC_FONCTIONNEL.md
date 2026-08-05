@@ -18,7 +18,7 @@
 
 **Client HTTP externe** (humain ou système)
 - Peut : lister tous les utilisateurs (`GET /users`)
-- Peut : lister toutes les commandes (`GET /orders`), enrichies avec `totalXpf` (arrondi du montant en centimes)
+- Peut : lister toutes les commandes (`GET /orders`), enrichies avec `clientName` (nom de l'utilisateur, CLA-187) et `currency` (devise = "XPF", CLA-261)
 - Peut : filtrer les commandes par utilisateur (`GET /orders?userId=N`)
 - **Peut (bug volontaire)** : filtrer les commandes actives (`GET /orders?active=true` — **NE FONCTIONNE PAS** car `filterActiveOrders()` compare à `"canceled"` au lieu de `"cancelled"`)
 - **Interdit** : filtrer les commandes par statut exact (`GET /orders?status=...` — paramètre `status` n'existe pas)
@@ -77,17 +77,17 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 4. `activeOnly === false` → pas d'appel à `filterActiveOrders` (la réponse retournée directement `src/server.js:25`)
 5. Réponse : statut 200 + tableau JSON
 
-**Résultat** : 4 commandes (toutes, incluses les annulées), enrichies avec `totalXpf`
+**Résultat** : 4 commandes (toutes, incluses les annulées), enrichies avec `clientName` et `currency`
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 },
-  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "totalXpf": 18 },
-  { "id": 103, "userId": 3, "total": 9600, "status": "paid", "totalXpf": 96 },
-  { "id": 104, "userId": 3, "total": 3000, "status": "cancelled", "totalXpf": 30 }
+  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "createdAt": "2024-01-10T08:00:00Z", "clientName": "Teiki", "currency": "XPF" },
+  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "createdAt": "2024-02-20T14:30:00Z", "clientName": "Teiki", "currency": "XPF" },
+  { "id": 103, "userId": 3, "total": 9600, "status": "paid", "createdAt": "2024-03-15T10:45:00Z", "clientName": "Manoa", "currency": "XPF" },
+  { "id": 104, "userId": 3, "total": 3000, "status": "cancelled", "createdAt": "2024-04-22T16:20:00Z", "clientName": "Manoa", "currency": "XPF" }
 ]
 ```
 
-**Détails du calcul `totalXpf`** : Chaque objet commande est enrichi à `src/server.js:25` via `.map(o => ({ ...o, totalXpf: Math.round(o.total / 100) }))`. Cet enrichissement applique à toutes les variantes (sans filtre, avec userId, avec active).
+**Enrichissement appliqué** : Chaque objet commande est enrichi à `src/server.js:52-55` via `.map()` pour ajouter `clientName` (récupéré via `getUserById()`, CLA-187) et `currency` (constante "XPF" depuis `src/routes/orders.js:5`, CLA-261). Cet enrichissement applique à toutes les variantes (sans filtre, avec userId, avec active, avec statut, avec tri/plage de dates).
 
 #### Variante 2b — Commandes d'un utilisateur spécifique
 
@@ -101,15 +101,15 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 5. Résultat : 2 commandes (101 et 102, toutes de Teiki)
 6. Pas d'appel `filterActiveOrders` → tableau retourné tel quel
 
-**Résultat** : commandes de l'utilisateur 2 (y compris annulée), enrichies avec `totalXpf`
+**Résultat** : commandes de l'utilisateur 2 (y compris annulée), enrichies avec `clientName` et `currency`
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 },
-  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "totalXpf": 18 }
+  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "createdAt": "2024-01-10T08:00:00Z", "clientName": "Teiki", "currency": "XPF" },
+  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "createdAt": "2024-02-20T14:30:00Z", "clientName": "Teiki", "currency": "XPF" }
 ]
 ```
 
-**Enrichissement appliqué** : chaque objet porte `totalXpf = Math.round(total / 100)`.
+**Enrichissement appliqué** : chaque objet porte `clientName` et `currency = "XPF"`.
 
 #### Variante 2c — Tentative de filtrer commandes actives d'un utilisateur
 
@@ -125,15 +125,15 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
    - Commande 102 : `"cancelled" !== "canceled"` → true, **PASSE AUSSI** (orthographe ne match pas)
 6. Résultat retourné : [101, 102]
 
-**Ce qui est reçu** : **les deux commandes incluant l'annulée** — **comportement incorrect**. Le bug n'a pas été corrigé. Les objets sont enrichis de `totalXpf`.
+**Ce qui est reçu** : **les deux commandes incluant l'annulée** — **comportement incorrect**. Le bug n'a pas été corrigé. Les objets sont enrichis de `clientName` et `currency`.
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 },
-  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "totalXpf": 18 }
+  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "createdAt": "2024-01-10T08:00:00Z", "clientName": "Teiki", "currency": "XPF" },
+  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "createdAt": "2024-02-20T14:30:00Z", "clientName": "Teiki", "currency": "XPF" }
 ]
 ```
 
-**Enrichissement** : malgré le bug du filtre, `totalXpf` est bien appliqué à tous les objets retournés.
+**Enrichissement** : malgré le bug du filtre, `clientName` et `currency` sont bien appliqués à tous les objets retournés.
 
 #### Variante 2d — Commandes actives globales
 
@@ -145,17 +145,17 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 3. `listOrders()` → [101, 102, 103, 104] (tri par id)
 4. `filterActiveOrders([...])` → exclut 102 et 104 (`"cancelled"`)
 
-**Résultat reçu** : **4 commandes (y compris les annulées)** — **COMPORTEMENT INCORRECT** car `filterActiveOrders()` compare `order.status !== "canceled"` (orthographe US) alors que les données portent `"cancelled"` (orthographe GB). Aucune commande n'est exclue. Bug volontaire du pilote. Les objets sont enrichis de `totalXpf`.
+**Résultat reçu** : **4 commandes (y compris les annulées)** — **COMPORTEMENT INCORRECT** car `filterActiveOrders()` compare `order.status !== "canceled"` (orthographe US) alors que les données portent `"cancelled"` (orthographe GB). Aucune commande n'est exclue. Bug volontaire du pilote. Les objets sont enrichis de `clientName` et `currency`.
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 },
-  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "totalXpf": 18 },
-  { "id": 103, "userId": 3, "total": 9600, "status": "paid", "totalXpf": 96 },
-  { "id": 104, "userId": 3, "total": 3000, "status": "cancelled", "totalXpf": 30 }
+  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "createdAt": "2024-01-10T08:00:00Z", "clientName": "Teiki", "currency": "XPF" },
+  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "createdAt": "2024-02-20T14:30:00Z", "clientName": "Teiki", "currency": "XPF" },
+  { "id": 103, "userId": 3, "total": 9600, "status": "paid", "createdAt": "2024-03-15T10:45:00Z", "clientName": "Manoa", "currency": "XPF" },
+  { "id": 104, "userId": 3, "total": 3000, "status": "cancelled", "createdAt": "2024-04-22T16:20:00Z", "clientName": "Manoa", "currency": "XPF" }
 ]
 ```
 
-**Enrichissement** : `totalXpf` s'applique à tous les objets retournés, indépendamment du bug du filtre.
+**Enrichissement** : `clientName` et `currency` s'appliquent à tous les objets retournés, indépendamment du bug du filtre.
 
 ### Parcours 3 — Tentative d'accès refusé ou mal formé
 

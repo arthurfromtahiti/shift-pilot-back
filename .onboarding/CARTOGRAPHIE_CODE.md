@@ -62,13 +62,14 @@ shift-pilot-back/
 
 | Élément | Type | Ligne(s) | Détail |
 |---------|------|----------|--------|
-| `orders` | Data (const array) | 5-10 | Tableau littéral, 4 objets `{id, userId, total, status, createdAt}`. `total` en XPF. Statut ∈ {`"paid"`, `"cancelled"`} (double l). `createdAt` ISO 8601 UTC (CLA-225). |
-| `listOrders()` | Function export | 12-14 | Retourne `orders` triés par id (via `_.sortBy`). |
-| `getOrdersByUser(userId)` | Function export | 16-18 | Filtre par `order.userId === userId`. Fonctionne correctement. |
-| `filterActiveOrders(orderList)` | Function export | 20-22 | Exclut les commandes `"cancelled"`. Bug orthographique corrigé en CLA-195. |
-| `filterByStatus(orderList, status)` | Function export | 24-26 | Filtre par valeur de statut exacte (`order.status === status`). |
-| `getOrderById(id)` | Function export | 28-30 | Lookup par ID via `find()`. Importée dans server.js:6 mais non appelée (route `/orders/:id` inexistante). |
-| Route HTTP | GET /orders | server.js:27-56 | `GET /orders` avec params optionnels `userId`, `active`, `status`, `sort`, `from`, `to` → JSON 200. |
+| `DEFAULT_CURRENCY` | Const | 5 | Constante "XPF", exportée ligne 34 (CLA-261), utilisée pour enrichir chaque réponse de commande. |
+| `orders` | Data (const array) | 7-12 | Tableau littéral, 4 objets `{id, userId, total, status, createdAt}`. `total` en XPF. Statut ∈ {`"paid"`, `"cancelled"`} (double l). `createdAt` ISO 8601 UTC (CLA-225). |
+| `listOrders()` | Function export | 14-16 | Retourne `orders` triés par id (via `_.sortBy`). |
+| `getOrdersByUser(userId)` | Function export | 18-20 | Filtre par `order.userId === userId`. Fonctionne correctement. |
+| `filterActiveOrders(orderList)` | Function export | 22-24 | Exclut les commandes `"cancelled"`. Bug orthographique corrigé en CLA-195. |
+| `filterByStatus(orderList, status)` | Function export | 26-28 | Filtre par valeur de statut exacte (`order.status === status`). |
+| `getOrderById(id)` | Function export | 30-32 | Lookup par ID via `find()`. Importée dans server.js:6 mais non appelée (route `/orders/:id` inexistante). |
+| Route HTTP | GET /orders | server.js:27-56 | `GET /orders` avec params optionnels `userId`, `active`, `status`, `sort`, `from`, `to` → JSON 200. Enrichit chaque commande avec `clientName` et `currency` (CLA-261). |
 
 **Composition des filtres** (`src/server.js:35-55`)
 ```
@@ -79,7 +80,7 @@ shift-pilot-back/
 5. Si status fourni → filterByStatus(result, status)
 6. Si from/to fournis (format YYYY-MM-DD valide) → filtre par plage de dates sur createdAt (CLA-186)
 7. Si sort=date_asc → tri croissant par createdAt ; sort=date_desc → tri décroissant (CLA-186)
-8. Enrichir chaque commande avec clientName via getUserById() (server.js:52-54, CLA-187)
+8. Enrichir chaque commande avec clientName via getUserById() et currency via DEFAULT_CURRENCY (server.js:52-55, CLA-187 et CLA-261)
 9. Retourner result
 ```
 
@@ -105,7 +106,7 @@ shift-pilot-back/
 | `new URL(req.url, ...)` | URL parsing | 14 | Parse relative à `http://${req.headers.host}` — préserve chemin + query string. |
 | Routes GET /users | if-block | 16-17 | Branchement `→ listUsers()`. |
 | Routes GET /users/:id | if-block | 20-25 | Lookup par ID via `getUserById()` ; retourne 404 si absent (CLA-187). |
-| Routes GET /orders | if-block | 27-56 | Branchement + orchestration filtres (userId, active, status, from, to, sort). Tri et filtre par date ajoutés en CLA-186. Chaque commande enrichie avec `clientName` via `getUserById()` (server.js:52-54, CLA-187). **C'est ici que la logique métier est composée.** |
+| Routes GET /orders | if-block | 27-56 | Branchement + orchestration filtres (userId, active, status, from, to, sort). Tri et filtre par date ajoutés en CLA-186. Chaque commande enrichie avec `clientName` via `getUserById()` et `currency` (server.js:52-55, CLA-187 et CLA-261). **C'est ici que la logique métier est composée.** |
 | Fallback 404 | if-block | 58 | Tout ce qui ne match pas → 404 + `{error: "Not found"}`. |
 | `require.main === module` | Conditional | 62-66 | Démarre le serveur uniquement si invoqué directement (pas si importé en test). |
 | `module.exports = server` | Export | 68 | Permet d'importer le serveur en test et de le décorer (ex. faire des requêtes HTTP). |
@@ -136,8 +137,9 @@ shift-pilot-back/
 | `listOrders()` | orders.js:12-14 | Utilisé via GET /orders sans filtre. Retourne les commandes triées par id. Importé : server.js:6. |
 | `getOrdersByUser(id)` | orders.js:16-18 | Utilisé par GET /orders?userId=. Importé : server.js:6. |
 | `filterActiveOrders(orderList)` | orders.js:20-22 | Utilisé par GET /orders?active=true. Exclut les commandes `"cancelled"`. Importé : server.js:6. |
-| `filterByStatus(orderList, status)` | orders.js:24-26 | Utilisé par GET /orders?status=. Filtre par valeur de statut. Importé : server.js:6. |
-| `getOrderById(id)` | orders.js:28-30 | Importé : server.js:6. **Jamais appelé** (route /orders/:id inexistante). |
+| `filterByStatus(orderList, status)` | orders.js:26-28 | Utilisé par GET /orders?status=. Filtre par valeur de statut. Importé : server.js:6. |
+| `DEFAULT_CURRENCY` | orders.js:5 | Constante "XPF" utilisée pour enrichir les réponses de commandes. Importée : server.js:6. Utilisée dans GET /orders (server.js:54, CLA-261). |
+| `getOrderById(id)` | orders.js:30-32 | Importé : server.js:6. **Jamais appelé** (route /orders/:id inexistante). |
 | `server` (http.Server) | server.js:68 | Exporté pour import en test. |
 
 ## Fichiers critiques (hotspots d'évolution)
@@ -186,8 +188,8 @@ Aucune. Tous les fichiers source ont été lus intégralement.
 
 **Domaine utilisateurs** : src/routes/users.js:1-21 (lu intégralement, 21 lignes)
 
-**Domaine commandes** : src/routes/orders.js:1-32 (lu intégralement, 32 lignes)
+**Domaine commandes** : src/routes/orders.js:1-34 (lu intégralement, 34 lignes, constante DEFAULT_CURRENCY ajoutée CLA-261)
 
 **Package** : package.json (dépendance lodash ^4.18.1, engines node>=18)
 
-**Tests** : test/orders.test.js (tests d'acceptation : clientName, total XPF, filtres, tri et filtre par date)
+**Tests** : test/orders.test.js (tests d'acceptation : clientName, currency, filtres, tri et filtre par date)

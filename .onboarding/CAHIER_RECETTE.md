@@ -109,28 +109,36 @@ Body (JSON) :
     "userId": 2,
     "total": 4200,
     "status": "paid",
-    "totalXpf": 42
+    "createdAt": "2024-01-10T08:00:00Z",
+    "clientName": "Teiki",
+    "currency": "XPF"
   },
   {
     "id": 102,
     "userId": 2,
     "total": 1800,
     "status": "cancelled",
-    "totalXpf": 18
+    "createdAt": "2024-02-20T14:30:00Z",
+    "clientName": "Teiki",
+    "currency": "XPF"
   },
   {
     "id": 103,
     "userId": 3,
     "total": 9600,
     "status": "paid",
-    "totalXpf": 96
+    "createdAt": "2024-03-15T10:45:00Z",
+    "clientName": "Manoa",
+    "currency": "XPF"
   },
   {
     "id": 104,
     "userId": 3,
     "total": 3000,
     "status": "cancelled",
-    "totalXpf": 30
+    "createdAt": "2024-04-22T16:20:00Z",
+    "clientName": "Manoa",
+    "currency": "XPF"
   }
 ]
 ```
@@ -139,7 +147,7 @@ Body (JSON) :
 - ✅ Statut 200
 - ✅ Array JSON de 4 objets
 - ✅ Deux commandes ont `status: "paid"`, deux ont `status: "cancelled"`
-- ✅ Chaque objet enrichi avec `totalXpf` = arrondi du montant en centimes
+- ✅ Chaque objet enrichi avec `clientName` (nom de l'utilisateur propriétaire, CLA-187) et `currency` (devise "XPF", CLA-261)
 - ✅ `userId` lie à utilisateurs existants (2=Teiki, 3=Manoa)
 - ✅ Commandes annulées présentes dans le résultat (pas filtré)
 
@@ -149,11 +157,10 @@ Body (JSON) :
 - ✅ Requête `DELETE /orders` → 404
 
 **Points de contrôle complémentaires**
-- ✅ Tous les objets enrichis avec `totalXpf = arrondi(total / 100)`
-- ✅ Exemple : total 4200 → totalXpf 42 ; total 1800 → totalXpf 18
+- ✅ Tous les objets enrichis avec `clientName` et `currency`
 
 **Preuve du code**
-- `src/server.js:18-26` : routing vers commandes sans filtre → `listOrders()` → enrichissement `totalXpf` ligne 25
+- `src/server.js:27-56` : routing vers commandes sans filtre → `listOrders()` → enrichissement avec `clientName` et `currency` lignes 52-55
 - `src/routes/orders.js:10-12` : `listOrders()` retourne tableau complet
 - `src/routes/orders.js:3-8` : données
 
@@ -185,14 +192,18 @@ Body (JSON) :
     "userId": 2,
     "total": 4200,
     "status": "paid",
-    "totalXpf": 42
+    "createdAt": "2024-01-10T08:00:00Z",
+    "clientName": "Teiki",
+    "currency": "XPF"
   },
   {
     "id": 102,
     "userId": 2,
     "total": 1800,
     "status": "cancelled",
-    "totalXpf": 18
+    "createdAt": "2024-02-20T14:30:00Z",
+    "clientName": "Teiki",
+    "currency": "XPF"
   }
 ]
 ```
@@ -201,7 +212,7 @@ Body (JSON) :
 - ✅ Statut 200
 - ✅ Array JSON de 2 objets (uniquement userId=2)
 - ✅ Les deux commandes de Teiki retournées
-- ✅ Chaque objet enrichi avec `totalXpf` correct (101 → 42, 102 → 18)
+- ✅ Chaque objet enrichi avec `clientName` et `currency`
 
 ### Variante 3b — userId=3 (Manoa, 2 commandes)
 
@@ -272,8 +283,8 @@ Body : `[]`
 - ✅ Liste vide = cas normal
 
 **Preuve du code**
-- `src/server.js:19,22` : lecture et conversion `userId`
-- `src/routes/orders.js:14-16` : `getOrdersByUser(userId)` filtre par égalité stricte
+- `src/server.js:28,38` : lecture et conversion `userId`
+- `src/routes/orders.js:18-20` : `getOrdersByUser(userId)` filtre par égalité stricte
 
 ---
 
@@ -292,21 +303,21 @@ GET /orders?active=true HTTP/1.1
 
 Status : **200 OK**
 
-**Body attendu (si le filtre fonctionnait)** : 2 commandes payées uniquement, enrichies avec `totalXpf`
+**Body attendu (si le filtre fonctionnait)** : 2 commandes payées uniquement, enrichies avec `clientName` et `currency`
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 },
-  { "id": 103, "userId": 3, "total": 9600, "status": "paid", "totalXpf": 96 }
+  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "createdAt": "2024-01-10T08:00:00Z", "clientName": "Teiki", "currency": "XPF" },
+  { "id": 103, "userId": 3, "total": 9600, "status": "paid", "createdAt": "2024-03-15T10:45:00Z", "clientName": "Manoa", "currency": "XPF" }
 ]
 ```
 
-**Body réellement reçu (BUG OBSERVABLE)** : **4 commandes incluant les annulées**, enrichies avec `totalXpf`
+**Body réellement reçu (BUG OBSERVABLE)** : **4 commandes incluant les annulées**, enrichies avec `clientName` et `currency`
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 },
-  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "totalXpf": 18 },
-  { "id": 103, "userId": 3, "total": 9600, "status": "paid", "totalXpf": 96 },
-  { "id": 104, "userId": 3, "total": 3000, "status": "cancelled", "totalXpf": 30 }
+  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "createdAt": "2024-01-10T08:00:00Z", "clientName": "Teiki", "currency": "XPF" },
+  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "createdAt": "2024-02-20T14:30:00Z", "clientName": "Teiki", "currency": "XPF" },
+  { "id": 103, "userId": 3, "total": 9600, "status": "paid", "createdAt": "2024-03-15T10:45:00Z", "clientName": "Manoa", "currency": "XPF" },
+  { "id": 104, "userId": 3, "total": 3000, "status": "cancelled", "createdAt": "2024-04-22T16:20:00Z", "clientName": "Manoa", "currency": "XPF" }
 ]
 ```
 
@@ -314,8 +325,8 @@ Status : **200 OK**
 - ⚠️ Statut 200 (correct)
 - ❌ Commandes annulées (102, 104) **PRÉSENTES** dans le résultat — **INCORRECT**
 - ❌ Le filtre ne fonctionne pas : `filterActiveOrders()` compare à `"canceled"` (orthographe US) alors que les données portent `"cancelled"` (orthographe GB)
-- ✅ Tous les 4 objets enrichis avec `totalXpf` correct (42, 18, 96, 30)
-- ⚠️ Preuves : `src/routes/orders.js:23` (bug de comparaison orthographique), `src/server.js:25` (enrichissement toujours appliqué)
+- ✅ Tous les 4 objets enrichis avec `clientName` et `currency`
+- ⚠️ Preuves : `src/routes/orders.js:24` (bug de comparaison orthographique), `src/server.js:52-55` (enrichissement toujours appliqué)
 
 ### Variante 4b — active=true avec userId=2 (BUG OBSERVABLE)
 
@@ -326,18 +337,18 @@ GET /orders?userId=2&active=true HTTP/1.1
 
 Status : **200 OK**
 
-**Body attendu (si le filtre fonctionnait)** : 1 commande payée de Teiki, enrichie avec `totalXpf`
+**Body attendu (si le filtre fonctionnait)** : 1 commande payée de Teiki, enrichie avec `clientName` et `currency`
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 }
+  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "createdAt": "2024-01-10T08:00:00Z", "clientName": "Teiki", "currency": "XPF" }
 ]
 ```
 
-**Body réellement reçu (BUG OBSERVABLE)** : **2 commandes incluant l'annulée**, enrichies avec `totalXpf`
+**Body réellement reçu (BUG OBSERVABLE)** : **2 commandes incluant l'annulée**, enrichies avec `clientName` et `currency`
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "totalXpf": 42 },
-  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "totalXpf": 18 }
+  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "createdAt": "2024-01-10T08:00:00Z", "clientName": "Teiki", "currency": "XPF" },
+  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "createdAt": "2024-02-20T14:30:00Z", "clientName": "Teiki", "currency": "XPF" }
 ]
 ```
 
@@ -345,7 +356,7 @@ Status : **200 OK**
 - ✅ Filtre `userId` appliqué correctement en premier → [101, 102]
 - ❌ Filtre `active=true` **NE filtre rien** — commande 102 (annulée) **PASSE À TRAVERS**
 - ❌ Le bug orthographique s'applique : `"cancelled" !== "canceled"` → true, l'objet passe
-- ✅ Les 2 objets retournés enrichis avec `totalXpf` (42, 18)
+- ✅ Les 2 objets retournés enrichis avec `clientName` et `currency`
 
 ### Variante 4c — active=false (paramètre ignoré)
 
@@ -361,9 +372,9 @@ GET /orders?active=false HTTP/1.1
 - ✅ Autres valeurs → false (pas d'erreur)
 
 **Preuve du code (démontrant le bug)**
-- `src/server.js:20` : `url.searchParams.get("active") === "true"` (exact match, correct)
-- `src/server.js:23` : appel conditionnel `filterActiveOrders(result)` (correct)
-- `src/routes/orders.js:23` : **BUG** — `order.status !== "canceled"` (orthographe US) au lieu de `"cancelled"` (orthographe GB utilisée dans les données)
+- `src/server.js:29` : `url.searchParams.get("active") === "true"` (exact match, correct)
+- `src/server.js:40` : appel conditionnel `filterActiveOrders(result)` (correct)
+- `src/routes/orders.js:24` : **BUG** — `order.status !== "canceled"` (orthographe US) au lieu de `"cancelled"` (orthographe GB utilisée dans les données)
 - Résultat : aucune commande n'est jamais exclue car la condition ne match jamais
 
 ---
@@ -466,12 +477,12 @@ Body : 1 commande payée de Teiki (101)
 2. `active=true` → `filterActiveOrders` → [101]
 
 **Points de contrôle**
-- ✅ Composition : userId appliqué en premier, active ensuite
-- ✅ Commande 102 (annulée) exclue correctement
-- ✅ L'objet retourné enrichi avec `totalXpf` (42)
+- ✅ Composition : userId appliqué en premier, active ensuite (théorique — voir Scenario 4b pour le résultat réel du bug)
+- ✅ Commande 102 (annulée) exclue correctement (théorique)
+- ✅ L'objet retourné enrichi avec `clientName` et `currency`
 
 **Preuve du code**
-- `src/server.js:19-23` : composition des filtres, userId puis active
+- `src/server.js:38-41` : composition des filtres, userId puis active
 
 ---
 
@@ -504,13 +515,13 @@ Body : 1 commande payée de Teiki (101)
 
 | Scenario | Chemin de code | Statut |
 |----------|----------------|--------|
-| 1. Lister utilisateurs | src/server.js:14-16, src/routes/users.js:9-11 | ✅ Fonctionnel |
-| 2. Lister commandes | src/server.js:18-26, src/routes/orders.js:10-12 | ✅ Fonctionnel |
-| 3. Filtrer par userId | src/server.js:22, src/routes/orders.js:14-16 | ✅ Fonctionnel |
-| 4. Filtrer par active=true | src/server.js:23, src/routes/orders.js:23 | ❌ BUG — orthographe US vs GB, ne filtre jamais |
-| 5. Routes invalides | src/server.js:36 | ✅ Fonctionnel |
-| 6. Composition filtres | src/server.js:19-23 | ✅ Fonctionnel |
-| 7. Données statiques | src/routes/*.js:4-8 | ✅ Vérifiable |
+| 1. Lister utilisateurs | src/server.js:16-17, src/routes/users.js:9-11 | ✅ Fonctionnel |
+| 2. Lister commandes | src/server.js:27-56, src/routes/orders.js:14-16 | ✅ Fonctionnel |
+| 3. Filtrer par userId | src/server.js:38, src/routes/orders.js:18-20 | ✅ Fonctionnel |
+| 4. Filtrer par active=true | src/server.js:40, src/routes/orders.js:24 | ❌ BUG — orthographe US vs GB, ne filtre jamais |
+| 5. Routes invalides | src/server.js:58 | ✅ Fonctionnel |
+| 6. Composition filtres | src/server.js:38-41 | ✅ Fonctionnel |
+| 7. Données statiques | src/routes/*.js | ✅ Vérifiable |
 
 ## Instructions de recette — à la main ou automatisé
 
@@ -546,7 +557,7 @@ Résultat attendu : test au vert (le bug est bien présent comme prévu).
 ## Preuves
 
 Tous les scenarios sont dérivés des workflows validés :
-- **WORKFLOW_LIST_USERS** (src/server.js:14-16, src/routes/users.js:9-11)
-- **WORKFLOW_LIST_ORDERS** (src/server.js:18-26, src/routes/orders.js:10-24)
+- **WORKFLOW_LIST_USERS** (src/server.js:16-17, src/routes/users.js:9-11)
+- **WORKFLOW_LIST_ORDERS** (src/server.js:27-56, src/routes/orders.js:14-28)
 
 Aucun scenario n'invente une fonctionnalité absente du code.
