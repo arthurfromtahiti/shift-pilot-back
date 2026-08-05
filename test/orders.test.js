@@ -231,3 +231,4 @@ test("GET /orders retourne currency='XPF' sur chaque commande", async () => {
     "chaque commande doit exposer currency='XPF'",
   );
 });
+
