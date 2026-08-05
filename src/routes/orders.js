@@ -31,4 +31,15 @@ function getOrderById(id) {
   return orders.find(order => order.id === id) || null;
 }
 
-module.exports = { listOrders, getOrdersByUser, filterActiveOrders, getOrderById, filterByStatus, DEFAULT_CURRENCY };
+function normalize(s) {
+  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
+
+function filterByCustomerName(orderList, customerName) {
+  const needle = normalize(customerName);
+  return orderList.filter(
+    (o) => o.clientName !== null && normalize(o.clientName).includes(needle)
+  );
+}
+
+module.exports = { listOrders, getOrdersByUser, filterActiveOrders, getOrderById, filterByStatus, filterByCustomerName, DEFAULT_CURRENCY };

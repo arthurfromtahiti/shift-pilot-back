@@ -231,3 +231,42 @@ test("GET /orders retourne currency='XPF' sur chaque commande", async () => {
     "chaque commande doit exposer currency='XPF'",
   );
 });
+
+// SHIAAAAAAAAAAAAAAAAAAAAAAAA-23 — filtre customerName
+
+test("filterByCustomerName exclut les commandes dont clientName est null", () => {
+  const { filterByCustomerName } = require("../src/routes/orders");
+  const sample = [
+    { id: 1, clientName: "Teiki" },
+    { id: 2, clientName: null },
+    { id: 3, clientName: "Manoa" },
+  ];
+  const result = filterByCustomerName(sample, "a");
+  assert.deepEqual(
+    result.map((o) => o.id),
+    [3],
+    "les commandes avec clientName null doivent être exclues",
+  );
+});
+
+test("GET /orders?customerName=teiki retourne uniquement les commandes de Teiki", async () => {
+  const result = await get("/orders?customerName=teiki");
+  const ids = result.map((o) => o.id).sort((a, b) => a - b);
+  assert.deepEqual(ids, [101, 102], "filtre insensible à la casse doit trouver commandes 101 et 102");
+});
+
+test("GET /orders?customerName=zzz retourne 200 et liste vide", async () => {
+  const result = await get("/orders?customerName=zzz");
+  assert.deepEqual(result, [], "aucun résultat doit retourner []");
+});
+
+test("GET /orders sans customerName conserve le comportement actuel (4 commandes)", async () => {
+  const result = await get("/orders");
+  assert.equal(result.length, 4, "sans customerName toutes les commandes sont retournées");
+});
+
+test("GET /orders?customerName=manoa&status=paid retourne uniquement la commande 103", async () => {
+  const result = await get("/orders?customerName=manoa&status=paid");
+  const ids = result.map((o) => o.id);
+  assert.deepEqual(ids, [103], "composition customerName + status doit affiner le résultat");
+});
