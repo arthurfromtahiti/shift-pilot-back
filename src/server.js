@@ -54,7 +54,7 @@ const server = http.createServer((req, res) => {
 
     let enriched = result.map((o) => {
       const user = getUserById(o.userId);
-      return { ...o, clientName: user ? user.name : null, currency: o.currency ?? DEFAULT_CURRENCY };
+      return { ...o, clientName: user ? user.name : null, clientEmail: user ? user.email : null, currency: o.currency ?? DEFAULT_CURRENCY };
     });
 
     if (customerNameParam !== null) enriched = filterByCustomerName(enriched, customerNameParam);
