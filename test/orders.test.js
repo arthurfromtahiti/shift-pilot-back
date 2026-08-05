@@ -221,3 +221,13 @@ test("GET /orders?from=2024-02-01&to=2024-03-31&sort=date_desc retourne id103 av
   const ids = result.map((o) => o.id);
   assert.deepEqual(ids, [103, 102], "combinaison plage fév–mars + sort=date_desc doit retourner 103 avant 102");
 });
+
+// CLA-261 — chaque commande expose le champ currency avec la valeur XPF
+test("GET /orders retourne currency='XPF' sur chaque commande", async () => {
+  const result = await get("/orders");
+  assert.equal(result.length, 4, "4 commandes attendues");
+  assert.ok(
+    result.every((o) => o.currency === "XPF"),
+    "chaque commande doit exposer currency='XPF'",
+  );
+});
