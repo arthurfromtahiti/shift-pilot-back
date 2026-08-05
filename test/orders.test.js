@@ -184,6 +184,21 @@ test("GET /orders?from=2024-02-01&to=2024-03-31 retourne uniquement id102 et id1
   assert.deepEqual(ids, [102, 103], "la plage fév–mars doit inclure uniquement id102 et id103");
 });
 
+// SHIAAAAAAAAAAAAAAAAAAAAAAAA-63 — tri par montant total
+test("GET /orders?sort=amount_asc retourne les commandes en ordre croissant de total", async () => {
+  const result = await get("/orders?sort=amount_asc");
+  const ids = result.map((o) => o.id);
+  // totaux: 101→42, 102→18, 103→96, 104→30 → ordre croissant: 102 < 104 < 101 < 103
+  assert.deepEqual(ids, [102, 104, 101, 103], "amount_asc doit retourner du plus petit au plus grand montant");
+});
+
+test("GET /orders?sort=amount_desc retourne les commandes en ordre décroissant de total", async () => {
+  const result = await get("/orders?sort=amount_desc");
+  const ids = result.map((o) => o.id);
+  // totaux: 101→42, 102→18, 103→96, 104→30 → ordre décroissant: 103 > 101 > 104 > 102
+  assert.deepEqual(ids, [103, 101, 104, 102], "amount_desc doit retourner du plus grand au plus petit montant");
+});
+
 // CLA-226 — sort invalide ignoré silencieusement
 test("GET /orders?sort=invalide retourne toutes les commandes sans erreur", async () => {
   const result = await get("/orders?sort=invalide");

@@ -45,9 +45,11 @@ const server = http.createServer((req, res) => {
     if (fromParam && isValidDate(fromParam)) result = result.filter((o) => o.createdAt >= fromParam + "T00:00:00Z");
     if (toParam && isValidDate(toParam)) result = result.filter((o) => o.createdAt <= toParam + "T23:59:59Z");
 
-    // date sort — unknown sort values are silently ignored, no mutation of source array
+    // date/amount sort — unknown sort values are silently ignored, no mutation of source array
     if (sortParam === "date_asc") result = [...result].sort((a, b) => a.createdAt < b.createdAt ? -1 : 1);
     else if (sortParam === "date_desc") result = [...result].sort((a, b) => a.createdAt > b.createdAt ? -1 : 1);
+    else if (sortParam === "amount_asc") result = [...result].sort((a, b) => a.total - b.total);
+    else if (sortParam === "amount_desc") result = [...result].sort((a, b) => b.total - a.total);
 
     return sendJson(res, 200, result.map((o) => {
       const user = getUserById(o.userId);
