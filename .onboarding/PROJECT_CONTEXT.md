@@ -55,9 +55,9 @@
 - **3 fichiers source** (src/server.js, src/routes/users.js, src/routes/orders.js)
 - **2 routes HTTP** GET /users, GET /orders (avec filtres userId, active, status)
 - **0 routes d'écriture** (POST/PUT/PATCH/DELETE)
-- **1 dépendance de production** : `lodash ^4.17.15` (tri dans listOrders)
+- **1 dépendance de production** : `lodash ^4.18.1` (tri dans listOrders)
 - **3 devDependencies** : `eslint ^10.8.0`, `@eslint/js ^10.0.1`, `globals ^17.9.0` (CLA-80)
-- **2 scripts npm** : `start` (lance le serveur), `test` (tests d'acceptation), `lint` (analyse ESLint, CLA-80)
+- **3 scripts npm** : `start` (lance le serveur), `test` (tests d'acceptation), `lint` (analyse ESLint, CLA-80)
 - **3 utilisateurs** en données de démo
 - **4 commandes** en données de démo (2 payées, 2 annulées)
 - **0 bug volontaire** actif (bug `filterActiveOrders` corrigé, CLA-114)

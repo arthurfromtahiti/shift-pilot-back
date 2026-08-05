@@ -14,13 +14,14 @@ shift-pilot-back/
 │   │   ├── users.js      [domaine utilisateurs]
 │   │   └── orders.js     [domaine commandes]
 ├── test/
-│   └── orders.test.js    [tests d'acceptation + test lint]
+│   ├── orders.test.js    [tests d'acceptation]
+│   └── lint.test.js      [test lint ESLint (CLA-80)]
 ├── package.json          [1 dépendance : lodash ; devDependencies : eslint, @eslint/js, globals]
 ├── eslint.config.js      [configuration ESLint v10 (flat config)]
 ├── README.md             [déclaration pilote SHIFT]
 ```
 
-**3 fichiers source, 1 fichier de test, 1 dépendance de production, 3 devDependencies de lint** : `lodash` (utilisée dans `orders.js:3` via `_.sortBy`), ESLint v10 avec config flat (`eslint.config.js`, CLA-80).
+**3 fichiers source, 2 fichiers de test, 1 dépendance de production, 3 devDependencies de lint** : `lodash` (utilisée dans `orders.js:3` via `_.sortBy`), ESLint v10 avec config flat (`eslint.config.js`, CLA-80).
 
 ## Domaines et fichiers
 
@@ -189,6 +190,6 @@ Aucune. Tous les fichiers source ont été lus intégralement.
 
 **Domaine commandes** : src/routes/orders.js:1-32 (lu intégralement, 32 lignes)
 
-**Package** : package.json (dépendance lodash ^4.17.15, devDependencies eslint ^10.8.0 + @eslint/js ^10.0.1 + globals ^17.9.0, engines node>=18, scripts start/test/lint, CLA-80)
+**Package** : package.json (dépendance lodash ^4.18.1, devDependencies eslint ^10.8.0 + @eslint/js ^10.0.1 + globals ^17.9.0, engines node>=18, scripts start/test/lint, CLA-80)
 
 **Tests** : test/orders.test.js (tests d'acceptation : clientName, total XPF, filtres, tri et filtre par date)
