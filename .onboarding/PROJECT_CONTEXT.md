@@ -55,7 +55,9 @@
 - **3 fichiers source** (src/server.js, src/routes/users.js, src/routes/orders.js)
 - **2 routes HTTP** GET /users, GET /orders (avec filtres userId, active, status)
 - **0 routes d'écriture** (POST/PUT/PATCH/DELETE)
-- **1 dépendance externe** : `lodash ^4.17.15` (tri dans listOrders)
+- **1 dépendance de production** : `lodash ^4.17.15` (tri dans listOrders)
+- **3 devDependencies** : `eslint ^10.8.0`, `@eslint/js ^10.0.1`, `globals ^17.9.0` (CLA-80)
+- **2 scripts npm** : `start` (lance le serveur), `test` (tests d'acceptation), `lint` (analyse ESLint, CLA-80)
 - **3 utilisateurs** en données de démo
 - **4 commandes** en données de démo (2 payées, 2 annulées)
 - **0 bug volontaire** actif (bug `filterActiveOrders` corrigé, CLA-114)
@@ -73,7 +75,7 @@
 
 - **Démarrage** : lire README.md (déclaration de pilot), puis ce contexte, puis CDC_FONCTIONNEL.md pour les règles métier.
 - **Cartographie** : consulter CARTOGRAPHIE_CODE.md pour trouver un fichier, comprendre l'architecture plate, identifier les hotspots.
-- **Test** : voir CAHIER_RECETTE.md pour les parcours à tester.
+- **Test & qualité** : `npm test` (tests d'acceptation, voir CAHIER_RECETTE.md), `npm run lint` (analyse ESLint, voir eslint.config.js).
 - **Points chauds** : src/server.js (dispatcher unique, filtres composés), src/routes/orders.js (filterByStatus, lodash), imports morts (getUserById dans server.js:3, isAdmin dans users.js).
 
 ## Décisions en suspens
