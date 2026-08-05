@@ -107,7 +107,7 @@ Body (JSON) :
   {
     "id": 101,
     "userId": 2,
-    "total": 4200,
+    "total": 42,
     "status": "paid",
     "createdAt": "2024-01-10T08:00:00Z",
     "clientName": "Teiki",
@@ -116,7 +116,7 @@ Body (JSON) :
   {
     "id": 102,
     "userId": 2,
-    "total": 1800,
+    "total": 18,
     "status": "cancelled",
     "createdAt": "2024-02-20T14:30:00Z",
     "clientName": "Teiki",
@@ -125,18 +125,18 @@ Body (JSON) :
   {
     "id": 103,
     "userId": 3,
-    "total": 9600,
+    "total": 96,
     "status": "paid",
-    "createdAt": "2024-03-15T10:45:00Z",
+    "createdAt": "2024-03-05T09:15:00Z",
     "clientName": "Manoa",
     "currency": "XPF"
   },
   {
     "id": 104,
     "userId": 3,
-    "total": 3000,
+    "total": 30,
     "status": "cancelled",
-    "createdAt": "2024-04-22T16:20:00Z",
+    "createdAt": "2024-04-12T16:45:00Z",
     "clientName": "Manoa",
     "currency": "XPF"
   }
@@ -190,7 +190,7 @@ Body (JSON) :
   {
     "id": 101,
     "userId": 2,
-    "total": 4200,
+    "total": 42,
     "status": "paid",
     "createdAt": "2024-01-10T08:00:00Z",
     "clientName": "Teiki",
@@ -199,7 +199,7 @@ Body (JSON) :
   {
     "id": 102,
     "userId": 2,
-    "total": 1800,
+    "total": 18,
     "status": "cancelled",
     "createdAt": "2024-02-20T14:30:00Z",
     "clientName": "Teiki",
@@ -288,13 +288,13 @@ Body : `[]`
 
 ---
 
-## Scenario 4 — Filtrer commandes actives (active=true) — BUG VOLONTAIRE
+## Scenario 4 — Filtrer commandes actives (active=true)
 
-**Classification** : cas d'error, filtre défectueux (démonstration volontaire du bug du pilote)
+**Classification** : nominal, filtre fonctionnel
 
-**Objectif** : démontrer le bug du filtre `?active=true` qui ne filtre jamais car il compare une orthographe différente
+**Objectif** : filtrer et obtenir uniquement les commandes actives (statut payé, pas annulées)
 
-### Variante 4a — active=true sans userId (BUG OBSERVABLE)
+### Variante 4a — active=true sans userId
 
 **Requête**
 ```
@@ -303,32 +303,23 @@ GET /orders?active=true HTTP/1.1
 
 Status : **200 OK**
 
-**Body attendu (si le filtre fonctionnait)** : 2 commandes payées uniquement, enrichies avec `clientName` et `currency`
+**Body reçu** : 2 commandes payées uniquement, enrichies avec `clientName` et `currency`
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "createdAt": "2024-01-10T08:00:00Z", "clientName": "Teiki", "currency": "XPF" },
-  { "id": 103, "userId": 3, "total": 9600, "status": "paid", "createdAt": "2024-03-15T10:45:00Z", "clientName": "Manoa", "currency": "XPF" }
-]
-```
-
-**Body réellement reçu (BUG OBSERVABLE)** : **4 commandes incluant les annulées**, enrichies avec `clientName` et `currency`
-```json
-[
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "createdAt": "2024-01-10T08:00:00Z", "clientName": "Teiki", "currency": "XPF" },
-  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "createdAt": "2024-02-20T14:30:00Z", "clientName": "Teiki", "currency": "XPF" },
-  { "id": 103, "userId": 3, "total": 9600, "status": "paid", "createdAt": "2024-03-15T10:45:00Z", "clientName": "Manoa", "currency": "XPF" },
-  { "id": 104, "userId": 3, "total": 3000, "status": "cancelled", "createdAt": "2024-04-22T16:20:00Z", "clientName": "Manoa", "currency": "XPF" }
+  { "id": 101, "userId": 2, "total": 42, "status": "paid", "createdAt": "2024-01-10T08:00:00Z", "clientName": "Teiki", "currency": "XPF" },
+  { "id": 103, "userId": 3, "total": 96, "status": "paid", "createdAt": "2024-03-05T09:15:00Z", "clientName": "Manoa", "currency": "XPF" }
 ]
 ```
 
 **Points de contrôle**
-- ⚠️ Statut 200 (correct)
-- ❌ Commandes annulées (102, 104) **PRÉSENTES** dans le résultat — **INCORRECT**
-- ❌ Le filtre ne fonctionne pas : `filterActiveOrders()` compare à `"canceled"` (orthographe US) alors que les données portent `"cancelled"` (orthographe GB)
-- ✅ Tous les 4 objets enrichis avec `clientName` et `currency`
-- ⚠️ Preuves : `src/routes/orders.js:24` (bug de comparaison orthographique), `src/server.js:52-55` (enrichissement toujours appliqué)
+- ✅ Statut 200
+- ✅ Commandes actives (101, 103) retournées — statut "paid" uniquement
+- ✅ Commandes annulées (102, 104) **EXCLUES** — **CORRECT**
+- ✅ Le filtre fonctionne : `filterActiveOrders()` compare à `"cancelled"` (orthographe GB, CLA-195), statuts annulés sont correctement exclus
+- ✅ Tous les 2 objets enrichis avec `clientName` et `currency`
+- ✅ Preuves : `src/routes/orders.js:22-24` (filtre fonctionnel), `src/server.js:52-55` (enrichissement appliqué)
 
-### Variante 4b — active=true avec userId=2 (BUG OBSERVABLE)
+### Variante 4b — active=true avec userId=2
 
 **Requête**
 ```
@@ -337,26 +328,18 @@ GET /orders?userId=2&active=true HTTP/1.1
 
 Status : **200 OK**
 
-**Body attendu (si le filtre fonctionnait)** : 1 commande payée de Teiki, enrichie avec `clientName` et `currency`
+**Body reçu** : 1 commande payée de Teiki, enrichie avec `clientName` et `currency`
 ```json
 [
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "createdAt": "2024-01-10T08:00:00Z", "clientName": "Teiki", "currency": "XPF" }
-]
-```
-
-**Body réellement reçu (BUG OBSERVABLE)** : **2 commandes incluant l'annulée**, enrichies avec `clientName` et `currency`
-```json
-[
-  { "id": 101, "userId": 2, "total": 4200, "status": "paid", "createdAt": "2024-01-10T08:00:00Z", "clientName": "Teiki", "currency": "XPF" },
-  { "id": 102, "userId": 2, "total": 1800, "status": "cancelled", "createdAt": "2024-02-20T14:30:00Z", "clientName": "Teiki", "currency": "XPF" }
+  { "id": 101, "userId": 2, "total": 42, "status": "paid", "createdAt": "2024-01-10T08:00:00Z", "clientName": "Teiki", "currency": "XPF" }
 ]
 ```
 
 **Points de contrôle**
 - ✅ Filtre `userId` appliqué correctement en premier → [101, 102]
-- ❌ Filtre `active=true` **NE filtre rien** — commande 102 (annulée) **PASSE À TRAVERS**
-- ❌ Le bug orthographique s'applique : `"cancelled" !== "canceled"` → true, l'objet passe
-- ✅ Les 2 objets retournés enrichis avec `clientName` et `currency`
+- ✅ Filtre `active=true` appliqué → commande 102 (annulée) **EXCLUE**
+- ✅ Le filtre fonctionne correctement : `"cancelled" !== "cancelled"` → false, l'objet est exclu
+- ✅ 1 objet retourné enrichi avec `clientName` et `currency`
 
 ### Variante 4c — active=false (paramètre ignoré)
 
@@ -371,11 +354,11 @@ GET /orders?active=false HTTP/1.1
 - ✅ Seule chaîne `"true"` (exact) déclenche le filtre
 - ✅ Autres valeurs → false (pas d'erreur)
 
-**Preuve du code (démontrant le bug)**
+**Preuve du code**
 - `src/server.js:29` : `url.searchParams.get("active") === "true"` (exact match, correct)
 - `src/server.js:40` : appel conditionnel `filterActiveOrders(result)` (correct)
-- `src/routes/orders.js:24` : **BUG** — `order.status !== "canceled"` (orthographe US) au lieu de `"cancelled"` (orthographe GB utilisée dans les données)
-- Résultat : aucune commande n'est jamais exclue car la condition ne match jamais
+- `src/routes/orders.js:22-24` : `order.status !== "cancelled"` (orthographe GB, double l) — bug corrigé en CLA-195
+- Résultat : les commandes annulées sont correctement exclues
 
 ---
 
