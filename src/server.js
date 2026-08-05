@@ -59,7 +59,18 @@ const server = http.createServer((req, res) => {
 
     if (customerNameParam !== null) enriched = filterByCustomerName(enriched, customerNameParam);
 
-    return sendJson(res, 200, enriched);
+    const pageParam = url.searchParams.get("page");
+    const limitParam = url.searchParams.get("limit");
+    const parsePage = (v) => { const n = parseInt(v, 10); return (isNaN(n) || n < 1) ? 1 : n; };
+    const parseLimit = (v) => { const n = parseInt(v, 10); if (isNaN(n) || n < 1) return 1; return Math.min(n, 100); };
+    const page = pageParam !== null ? parsePage(pageParam) : 1;
+    const limit = limitParam !== null ? parseLimit(limitParam) : 20;
+
+    const total = enriched.length;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const orders = enriched.slice((page - 1) * limit, page * limit);
+
+    return sendJson(res, 200, { orders, pagination: { total, page, limit, totalPages } });
   }
 
   sendJson(res, 404, { error: "Not found" });
