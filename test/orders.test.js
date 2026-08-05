@@ -40,40 +40,40 @@ function get(path) {
 
 test("GET /orders without ?status returns all orders", async () => {
   const result = await get("/orders");
-  assert.equal(result.length, 4, "all 4 orders must be returned when no status filter is provided");
+  assert.equal(result.orders.length, 4, "all 4 orders must be returned when no status filter is provided");
 });
 
 test("GET /orders?status=paid returns only paid orders", async () => {
   const result = await get("/orders?status=paid");
-  assert.ok(result.length > 0, "should return at least one paid order");
+  assert.ok(result.orders.length > 0, "should return at least one paid order");
   assert.ok(
-    result.every((o) => o.status === "paid"),
+    result.orders.every((o) => o.status === "paid"),
     "all returned orders must have status=paid",
   );
 });
 
 test("GET /orders?status=cancelled returns only cancelled orders", async () => {
   const result = await get("/orders?status=cancelled");
-  assert.ok(result.length > 0, "should return at least one cancelled order");
+  assert.ok(result.orders.length > 0, "should return at least one cancelled order");
   assert.ok(
-    result.every((o) => o.status === "cancelled"),
+    result.orders.every((o) => o.status === "cancelled"),
     "all returned orders must have status=cancelled",
   );
 });
 
 test("GET /orders?status=unknown returns empty list, not an error", async () => {
   const result = await get("/orders?status=unknown");
-  assert.deepEqual(result, [], "unknown status must return empty array");
+  assert.deepEqual(result.orders, [], "unknown status must return empty array");
 });
 
 // CLA-114 — Bug 1: American spelling "canceled" must match British "cancelled" in data
 test("GET /orders?status=canceled (one l) returns same orders as ?status=cancelled", async () => {
   const onEl = await get("/orders?status=canceled");
   const twoEl = await get("/orders?status=cancelled");
-  assert.ok(onEl.length > 0, "canceled (one l) must return at least one order");
+  assert.ok(onEl.orders.length > 0, "canceled (one l) must return at least one order");
   assert.deepEqual(
-    onEl.map((o) => o.id).sort(),
-    twoEl.map((o) => o.id).sort(),
+    onEl.orders.map((o) => o.id).sort(),
+    twoEl.orders.map((o) => o.id).sort(),
     "?status=canceled must return the same orders as ?status=cancelled",
   );
 });
@@ -81,13 +81,13 @@ test("GET /orders?status=canceled (one l) returns same orders as ?status=cancell
 // CLA-114 — Bug 2: explicit status param must take precedence over active=true filter
 test("GET /orders?active=true&status=cancelled returns cancelled orders (status wins)", async () => {
   const result = await get("/orders?active=true&status=cancelled");
-  assert.ok(result.length > 0, "should return at least one cancelled order despite active=true");
+  assert.ok(result.orders.length > 0, "should return at least one cancelled order despite active=true");
   assert.ok(
-    result.every((o) => o.status === "cancelled"),
+    result.orders.every((o) => o.status === "cancelled"),
     "all returned orders must have status=cancelled",
   );
   assert.deepEqual(
-    result.map((o) => o.id).sort(),
+    result.orders.map((o) => o.id).sort(),
     [102, 104],
     "must return orders 102 and 104",
   );
@@ -97,12 +97,12 @@ test("GET /orders?active=true&status=cancelled returns cancelled orders (status 
 test("GET /orders returns total in XPF and no totalXpf field", async () => {
   const result = await get("/orders");
   assert.deepEqual(
-    result.map((o) => o.total),
+    result.orders.map((o) => o.total),
     [42, 18, 96, 30],
     "GET /orders must return total in XPF (42, 18, 96, 30)",
   );
   assert.ok(
-    result.every((o) => !("totalXpf" in o)),
+    result.orders.every((o) => !("totalXpf" in o)),
     "GET /orders must not expose a totalXpf field",
   );
 });
@@ -121,7 +121,7 @@ test("listOrders() returns total in XPF (not centimes)", () => {
 // CLA-187 — GET /orders must expose clientName resolved from userId
 test("GET /orders exposes clientName resolved from each order's userId", async () => {
   const result = await get("/orders");
-  const byId = Object.fromEntries(result.map((o) => [o.id, o]));
+  const byId = Object.fromEntries(result.orders.map((o) => [o.id, o]));
   assert.equal(byId[101].clientName, "Teiki", "order 101 belongs to user 2 (Teiki)");
   assert.equal(byId[103].clientName, "Manoa", "order 103 belongs to user 3 (Manoa)");
 });
@@ -130,8 +130,8 @@ test("GET /orders exposes clientName resolved from each order's userId", async (
 test("GET /orders retourne createdAt sur chaque commande", async () => {
   const result = await get("/orders");
   const ISO_8601 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
-  assert.equal(result.length, 4, "4 commandes attendues");
-  for (const order of result) {
+  assert.equal(result.orders.length, 4, "4 commandes attendues");
+  for (const order of result.orders) {
     assert.ok(
       typeof order.createdAt === "string" && ISO_8601.test(order.createdAt),
       `order ${order.id} doit avoir createdAt ISO 8601, reçu : ${order.createdAt}`,
@@ -141,7 +141,7 @@ test("GET /orders retourne createdAt sur chaque commande", async () => {
 
 test("GET /orders retourne des createdAt tous distincts", async () => {
   const result = await get("/orders");
-  const dates = result.map((o) => o.createdAt);
+  const dates = result.orders.map((o) => o.createdAt);
   const unique = new Set(dates);
   assert.equal(unique.size, dates.length, "les dates createdAt doivent être toutes distinctes");
 });
@@ -167,34 +167,34 @@ test("filterByStatus filters orders by exact status match", () => {
 // CLA-226 — tri par date createdAt
 test("GET /orders?sort=date_asc retourne les commandes en ordre croissant de createdAt", async () => {
   const result = await get("/orders?sort=date_asc");
-  const ids = result.map((o) => o.id);
+  const ids = result.orders.map((o) => o.id);
   assert.deepEqual(ids, [101, 102, 103, 104], "date_asc doit retourner 101 < 102 < 103 < 104");
 });
 
 test("GET /orders?sort=date_desc retourne les commandes en ordre décroissant de createdAt", async () => {
   const result = await get("/orders?sort=date_desc");
-  const ids = result.map((o) => o.id);
+  const ids = result.orders.map((o) => o.id);
   assert.deepEqual(ids, [104, 103, 102, 101], "date_desc doit retourner 104 > 103 > 102 > 101");
 });
 
 // CLA-226 — filtrage par plage de dates
 test("GET /orders?from=2024-02-01&to=2024-03-31 retourne uniquement id102 et id103", async () => {
   const result = await get("/orders?from=2024-02-01&to=2024-03-31");
-  const ids = result.map((o) => o.id).sort((a, b) => a - b);
+  const ids = result.orders.map((o) => o.id).sort((a, b) => a - b);
   assert.deepEqual(ids, [102, 103], "la plage fév–mars doit inclure uniquement id102 et id103");
 });
 
 // SHIAAAAAAAAAAAAAAAAAAAAAAAA-63 — tri par montant total
 test("GET /orders?sort=amount_asc retourne les commandes en ordre croissant de total", async () => {
   const result = await get("/orders?sort=amount_asc");
-  const ids = result.map((o) => o.id);
+  const ids = result.orders.map((o) => o.id);
   // totaux: 101→42, 102→18, 103→96, 104→30 → ordre croissant: 102 < 104 < 101 < 103
   assert.deepEqual(ids, [102, 104, 101, 103], "amount_asc doit retourner du plus petit au plus grand montant");
 });
 
 test("GET /orders?sort=amount_desc retourne les commandes en ordre décroissant de total", async () => {
   const result = await get("/orders?sort=amount_desc");
-  const ids = result.map((o) => o.id);
+  const ids = result.orders.map((o) => o.id);
   // totaux: 101→42, 102→18, 103→96, 104→30 → ordre décroissant: 103 > 101 > 104 > 102
   assert.deepEqual(ids, [103, 101, 104, 102], "amount_desc doit retourner du plus grand au plus petit montant");
 });
@@ -202,24 +202,24 @@ test("GET /orders?sort=amount_desc retourne les commandes en ordre décroissant 
 // CLA-226 — sort invalide ignoré silencieusement
 test("GET /orders?sort=invalide retourne toutes les commandes sans erreur", async () => {
   const result = await get("/orders?sort=invalide");
-  assert.equal(result.length, 4, "un sort invalide ne doit pas provoquer d'erreur ni filtrer de commandes");
+  assert.equal(result.orders.length, 4, "un sort invalide ne doit pas provoquer d'erreur ni filtrer de commandes");
 });
 
 // CLA-226 — from/to invalides ignorés silencieusement
 test("GET /orders?from=foo retourne toutes les commandes sans erreur", async () => {
   const result = await get("/orders?from=foo");
-  assert.equal(result.length, 4, "un from invalide doit être ignoré silencieusement");
+  assert.equal(result.orders.length, 4, "un from invalide doit être ignoré silencieusement");
 });
 
 test("GET /orders?to=not-a-date retourne toutes les commandes sans erreur", async () => {
   const result = await get("/orders?to=not-a-date");
-  assert.equal(result.length, 4, "un to invalide doit être ignoré silencieusement");
+  assert.equal(result.orders.length, 4, "un to invalide doit être ignoré silencieusement");
 });
 
 // CLA-226 — combinaison avec filtre existant
 test("GET /orders?userId=3&sort=date_desc retourne les commandes de l'utilisateur 3 triées décroissant", async () => {
   const result = await get("/orders?userId=3&sort=date_desc");
-  const ids = result.map((o) => o.id);
+  const ids = result.orders.map((o) => o.id);
   // id103 (mars) et id104 (avr) appartiennent à userId=3 ; desc → 104 avant 103
   assert.deepEqual(ids, [104, 103], "combinaison userId + sort=date_desc doit retourner 104 avant 103");
 });
@@ -227,22 +227,22 @@ test("GET /orders?userId=3&sort=date_desc retourne les commandes de l'utilisateu
 // CLA-221 — from > to : plage impossible → tableau vide (les deux filtres s'appliquent indépendamment)
 test("GET /orders?from=2024-04-01&to=2024-02-01 (from > to) retourne tableau vide", async () => {
   const result = await get("/orders?from=2024-04-01&to=2024-02-01");
-  assert.deepEqual(result, [], "une plage inversée (from > to) ne peut contenir aucune commande");
+  assert.deepEqual(result.orders, [], "une plage inversée (from > to) ne peut contenir aucune commande");
 });
 
 // CLA-221 — combinaison from/to + sort
 test("GET /orders?from=2024-02-01&to=2024-03-31&sort=date_desc retourne id103 avant id102", async () => {
   const result = await get("/orders?from=2024-02-01&to=2024-03-31&sort=date_desc");
-  const ids = result.map((o) => o.id);
+  const ids = result.orders.map((o) => o.id);
   assert.deepEqual(ids, [103, 102], "combinaison plage fév–mars + sort=date_desc doit retourner 103 avant 102");
 });
 
 // CLA-261 — chaque commande expose le champ currency avec la valeur XPF
 test("GET /orders retourne currency='XPF' sur chaque commande", async () => {
   const result = await get("/orders");
-  assert.equal(result.length, 4, "4 commandes attendues");
+  assert.equal(result.orders.length, 4, "4 commandes attendues");
   assert.ok(
-    result.every((o) => o.currency === "XPF"),
+    result.orders.every((o) => o.currency === "XPF"),
     "chaque commande doit exposer currency='XPF'",
   );
 });
@@ -250,17 +250,15 @@ test("GET /orders retourne currency='XPF' sur chaque commande", async () => {
 // SHIAAAAAAAAAAAAAAAAAAAAAAAA-240 — GET /orders expose clientEmail
 test("GET /orders exposes clientEmail resolved from each order's userId", async () => {
   const result = await get("/orders");
-  const byId = Object.fromEntries(result.map((o) => [o.id, o]));
+  const byId = Object.fromEntries(result.orders.map((o) => [o.id, o]));
   assert.equal(byId[101].clientEmail, "teiki@example.pf", "order 101 belongs to user 2 (Teiki)");
   assert.equal(byId[103].clientEmail, "manoa@example.pf", "order 103 belongs to user 3 (Manoa)");
 });
 
 test("GET /orders sets clientEmail to null when no user is found", async () => {
-  // Order 101's userId is 2; clientName null implies clientEmail null — tested via data
-  // We verify the property always exists (even if null) by checking every order has clientEmail key
   const result = await get("/orders");
   assert.ok(
-    result.every((o) => "clientEmail" in o),
+    result.orders.every((o) => "clientEmail" in o),
     "every enriched order must expose a clientEmail field",
   );
 });
@@ -284,22 +282,108 @@ test("filterByCustomerName exclut les commandes dont clientName est null", () =>
 
 test("GET /orders?customerName=teiki retourne uniquement les commandes de Teiki", async () => {
   const result = await get("/orders?customerName=teiki");
-  const ids = result.map((o) => o.id).sort((a, b) => a - b);
+  const ids = result.orders.map((o) => o.id).sort((a, b) => a - b);
   assert.deepEqual(ids, [101, 102], "filtre insensible à la casse doit trouver commandes 101 et 102");
 });
 
 test("GET /orders?customerName=zzz retourne 200 et liste vide", async () => {
   const result = await get("/orders?customerName=zzz");
-  assert.deepEqual(result, [], "aucun résultat doit retourner []");
+  assert.deepEqual(result.orders, [], "aucun résultat doit retourner []");
 });
 
 test("GET /orders sans customerName conserve le comportement actuel (4 commandes)", async () => {
   const result = await get("/orders");
-  assert.equal(result.length, 4, "sans customerName toutes les commandes sont retournées");
+  assert.equal(result.orders.length, 4, "sans customerName toutes les commandes sont retournées");
 });
 
 test("GET /orders?customerName=manoa&status=paid retourne uniquement la commande 103", async () => {
   const result = await get("/orders?customerName=manoa&status=paid");
-  const ids = result.map((o) => o.id);
+  const ids = result.orders.map((o) => o.id);
   assert.deepEqual(ids, [103], "composition customerName + status doit affiner le résultat");
+});
+
+// SHIAAAAAAAAAAAAAAAAAAAAAAAA-249 — pagination de GET /orders
+
+test("GET /orders retourne un objet paginé avec les champs orders et pagination", async () => {
+  const result = await get("/orders");
+  assert.ok(Array.isArray(result.orders), "orders doit être un tableau");
+  assert.ok(typeof result.pagination === "object" && result.pagination !== null, "pagination doit être un objet");
+  assert.ok(typeof result.pagination.total === "number", "pagination.total doit être un nombre");
+  assert.ok(typeof result.pagination.page === "number", "pagination.page doit être un nombre");
+  assert.ok(typeof result.pagination.limit === "number", "pagination.limit doit être un nombre");
+  assert.ok(typeof result.pagination.totalPages === "number", "pagination.totalPages doit être un nombre");
+});
+
+test("GET /orders sans page/limit retourne page=1, limit=20, total=4, totalPages=1", async () => {
+  const result = await get("/orders");
+  assert.deepEqual(result.pagination, { total: 4, page: 1, limit: 20, totalPages: 1 });
+});
+
+test("GET /orders?page=2&limit=2 retourne les éléments 3 et 4 avec la bonne pagination", async () => {
+  // Sans tri, ordre naturel : 101, 102, 103, 104 — page 2, limit 2 → [103, 104]
+  const result = await get("/orders?page=2&limit=2");
+  assert.deepEqual(result.pagination, { total: 4, page: 2, limit: 2, totalPages: 2 });
+  const ids = result.orders.map((o) => o.id);
+  assert.deepEqual(ids, [103, 104], "page 2 limit 2 doit retourner id103 et id104");
+});
+
+test("GET /orders?page=1&limit=2 retourne les 2 premiers éléments", async () => {
+  const result = await get("/orders?page=1&limit=2");
+  assert.deepEqual(result.pagination, { total: 4, page: 1, limit: 2, totalPages: 2 });
+  const ids = result.orders.map((o) => o.id);
+  assert.deepEqual(ids, [101, 102], "page 1 limit 2 doit retourner id101 et id102");
+});
+
+test("GET /orders?page=99 (au-delà de totalPages) retourne orders vide avec pagination correcte", async () => {
+  const result = await get("/orders?page=99&limit=20");
+  assert.deepEqual(result.orders, [], "une page au-delà du total doit retourner un tableau vide");
+  assert.equal(result.pagination.total, 4);
+  assert.equal(result.pagination.page, 99);
+  assert.equal(result.pagination.totalPages, 1);
+});
+
+test("GET /orders?page=0 clamp à page=1", async () => {
+  const result = await get("/orders?page=0");
+  assert.equal(result.pagination.page, 1, "page=0 doit être clampé à 1");
+});
+
+test("GET /orders?page=-5 clamp à page=1", async () => {
+  const result = await get("/orders?page=-5");
+  assert.equal(result.pagination.page, 1, "page négative doit être clampée à 1");
+});
+
+test("GET /orders?page=abc clamp à page=1", async () => {
+  const result = await get("/orders?page=abc");
+  assert.equal(result.pagination.page, 1, "page non entière doit être clampée à 1");
+});
+
+test("GET /orders?limit=0 clamp à limit=1", async () => {
+  const result = await get("/orders?limit=0");
+  assert.equal(result.pagination.limit, 1, "limit=0 doit être clampé à 1");
+  assert.equal(result.pagination.total, 4);
+});
+
+test("GET /orders?limit=200 clamp à limit=100", async () => {
+  const result = await get("/orders?limit=200");
+  assert.equal(result.pagination.limit, 100, "limit > 100 doit être clampé à 100");
+});
+
+test("GET /orders?status=paid&page=1&limit=1 : filtres + pagination combinés", async () => {
+  const result = await get("/orders?status=paid&page=1&limit=1");
+  assert.equal(result.pagination.limit, 1);
+  assert.ok(result.orders.every((o) => o.status === "paid"), "toutes les commandes doivent être paid");
+  assert.equal(result.orders.length, 1, "limit=1 ne retourne qu'une commande par page");
+});
+
+test("GET /orders?sort=amount_asc&page=1&limit=2 : tri + pagination combinés", async () => {
+  // amount_asc : 102(18), 104(30), 101(42), 103(96) — page 1, limit 2 → [102, 104]
+  const result = await get("/orders?sort=amount_asc&page=1&limit=2");
+  assert.deepEqual(result.orders.map((o) => o.id), [102, 104]);
+  assert.deepEqual(result.pagination, { total: 4, page: 1, limit: 2, totalPages: 2 });
+});
+
+test("totalPages vaut au moins 1 même quand total=0", async () => {
+  const result = await get("/orders?status=unknown");
+  assert.equal(result.pagination.total, 0);
+  assert.equal(result.pagination.totalPages, 1, "totalPages minimum est 1 même si total=0");
 });

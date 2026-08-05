@@ -40,14 +40,14 @@ function get(path) {
 test("SHIAAAAAAAAAAAAAAAAAAAAAAAA-7 — GET /orders?customerName=Teiki retourne les commandes 101 et 102", async () => {
   const { status, body } = await get("/orders?customerName=Teiki");
   assert.equal(status, 200, "doit répondre 200");
-  const ids = body.map((o) => o.id).sort((a, b) => a - b);
+  const ids = body.orders.map((o) => o.id).sort((a, b) => a - b);
   assert.deepEqual(ids, [101, 102], "doit retourner uniquement les commandes de Teiki (101, 102)");
 });
 
 test("SHIAAAAAAAAAAAAAAAAAAAAAAAA-7 — GET /orders?customerName=Manoa retourne les commandes 103 et 104", async () => {
   const { status, body } = await get("/orders?customerName=Manoa");
   assert.equal(status, 200, "doit répondre 200");
-  const ids = body.map((o) => o.id).sort((a, b) => a - b);
+  const ids = body.orders.map((o) => o.id).sort((a, b) => a - b);
   assert.deepEqual(ids, [103, 104], "doit retourner uniquement les commandes de Manoa (103, 104)");
 });
 
@@ -56,14 +56,14 @@ test("SHIAAAAAAAAAAAAAAAAAAAAAAAA-7 — GET /orders?customerName=Manoa retourne 
 test("SHIAAAAAAAAAAAAAAAAAAAAAAAA-7 — GET /orders?customerName=eik (substring) retourne les commandes de Teiki", async () => {
   const { status, body } = await get("/orders?customerName=eik");
   assert.equal(status, 200, "doit répondre 200");
-  const ids = body.map((o) => o.id).sort((a, b) => a - b);
+  const ids = body.orders.map((o) => o.id).sort((a, b) => a - b);
   assert.deepEqual(ids, [101, 102], "substring 'eik' doit correspondre à 'Teiki'");
 });
 
 test("SHIAAAAAAAAAAAAAAAAAAAAAAAA-7 — GET /orders?customerName=ano (substring) retourne les commandes de Manoa", async () => {
   const { status, body } = await get("/orders?customerName=ano");
   assert.equal(status, 200, "doit répondre 200");
-  const ids = body.map((o) => o.id).sort((a, b) => a - b);
+  const ids = body.orders.map((o) => o.id).sort((a, b) => a - b);
   assert.deepEqual(ids, [103, 104], "substring 'ano' doit correspondre à 'Manoa'");
 });
 
@@ -72,14 +72,14 @@ test("SHIAAAAAAAAAAAAAAAAAAAAAAAA-7 — GET /orders?customerName=ano (substring)
 test("SHIAAAAAAAAAAAAAAAAAAAAAAAA-7 — GET /orders?customerName=teiki (minuscules) retourne les commandes de Teiki", async () => {
   const { status, body } = await get("/orders?customerName=teiki");
   assert.equal(status, 200, "doit répondre 200");
-  const ids = body.map((o) => o.id).sort((a, b) => a - b);
+  const ids = body.orders.map((o) => o.id).sort((a, b) => a - b);
   assert.deepEqual(ids, [101, 102], "insensibilité casse : 'teiki' doit trouver 'Teiki'");
 });
 
 test("SHIAAAAAAAAAAAAAAAAAAAAAAAA-7 — GET /orders?customerName=MANOA (majuscules) retourne les commandes de Manoa", async () => {
   const { status, body } = await get("/orders?customerName=MANOA");
   assert.equal(status, 200, "doit répondre 200");
-  const ids = body.map((o) => o.id).sort((a, b) => a - b);
+  const ids = body.orders.map((o) => o.id).sort((a, b) => a - b);
   assert.deepEqual(ids, [103, 104], "insensibilité casse : 'MANOA' doit trouver 'Manoa'");
 });
 
@@ -119,7 +119,7 @@ test("SHIAAAAAAAAAAAAAAAAAAAAAAAA-7 — filterByCustomerName 'heloise' trouve H�
 test("SHIAAAAAAAAAAAAAAAAAAAAAAAA-7 — GET /orders?customerName=xxxxxxxx retourne 200 et liste vide", async () => {
   const { status, body } = await get("/orders?customerName=xxxxxxxx");
   assert.equal(status, 200, "doit répondre 200 (jamais 404)");
-  assert.deepEqual(body, [], "aucun résultat doit retourner une liste vide, pas une erreur");
+  assert.deepEqual(body.orders, [], "aucun résultat doit retourner une liste vide, pas une erreur");
 });
 
 // ── Critère 5 : paramètre absent → comportement inchangé ──────────────────────
@@ -127,7 +127,7 @@ test("SHIAAAAAAAAAAAAAAAAAAAAAAAA-7 — GET /orders?customerName=xxxxxxxx retour
 test("SHIAAAAAAAAAAAAAAAAAAAAAAAA-7 — GET /orders sans customerName retourne les 4 commandes habituelles", async () => {
   const { status, body } = await get("/orders");
   assert.equal(status, 200, "doit répondre 200");
-  assert.equal(body.length, 4, "sans customerName, le filtre est ignoré : 4 commandes attendues");
+  assert.equal(body.orders.length, 4, "sans customerName, le filtre est ignoré : 4 commandes attendues");
 });
 
 // ── Combinaisons avec filtres existants ───────────────────────────────────────
@@ -135,6 +135,6 @@ test("SHIAAAAAAAAAAAAAAAAAAAAAAAA-7 — GET /orders sans customerName retourne l
 test("SHIAAAAAAAAAAAAAAAAAAAAAAAA-7 — customerName + status : teiki + paid retourne uniquement la commande 101", async () => {
   const { status, body } = await get("/orders?customerName=teiki&status=paid");
   assert.equal(status, 200, "doit répondre 200");
-  const ids = body.map((o) => o.id);
+  const ids = body.orders.map((o) => o.id);
   assert.deepEqual(ids, [101], "combinaison customerName + status doit affiner le résultat");
 });
