@@ -2,6 +2,8 @@
 
 const _ = require("lodash");
 
+const DEFAULT_CURRENCY = "XPF";
+
 const orders = [
   { id: 101, userId: 2, total: 42, status: "paid", createdAt: "2024-01-10T08:00:00Z" },
   { id: 102, userId: 2, total: 18, status: "cancelled", createdAt: "2024-02-20T14:30:00Z" },
@@ -29,4 +31,4 @@ function getOrderById(id) {
   return orders.find(order => order.id === id) || null;
 }
 
-module.exports = { listOrders, getOrdersByUser, filterActiveOrders, getOrderById, filterByStatus };
+module.exports = { listOrders, getOrdersByUser, filterActiveOrders, getOrderById, filterByStatus, DEFAULT_CURRENCY };
