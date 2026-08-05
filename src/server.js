@@ -3,7 +3,7 @@ const { URL } = require("node:url");
 
 const { listUsers, getUserById } = require("./routes/users");
 
-const { listOrders, getOrdersByUser, filterActiveOrders, filterByStatus, DEFAULT_CURRENCY } = require("./routes/orders");
+const { listOrders, getOrdersByUser, filterActiveOrders, filterByStatus, filterByCustomerName, DEFAULT_CURRENCY } = require("./routes/orders");
 
 function sendJson(res, status, body) {
   res.writeHead(status, { "Content-Type": "application/json" });
@@ -31,6 +31,7 @@ const server = http.createServer((req, res) => {
     const sortParam = url.searchParams.get("sort");
     const fromParam = url.searchParams.get("from");
     const toParam = url.searchParams.get("to");
+    const customerNameParam = url.searchParams.get("customerName");
 
     // "canceled" (American, 1 l) is an alias for the canonical "cancelled" stored in data
     const normalizedStatus = statusParam === "canceled" ? "cancelled" : statusParam;
@@ -49,10 +50,14 @@ const server = http.createServer((req, res) => {
     if (sortParam === "date_asc") result = [...result].sort((a, b) => a.createdAt < b.createdAt ? -1 : 1);
     else if (sortParam === "date_desc") result = [...result].sort((a, b) => a.createdAt > b.createdAt ? -1 : 1);
 
-    return sendJson(res, 200, result.map((o) => {
+    let enriched = result.map((o) => {
       const user = getUserById(o.userId);
       return { ...o, clientName: user ? user.name : null, currency: DEFAULT_CURRENCY };
-    }));
+    });
+
+    if (customerNameParam !== null) enriched = filterByCustomerName(enriched, customerNameParam);
+
+    return sendJson(res, 200, enriched);
   }
 
   sendJson(res, 404, { error: "Not found" });
