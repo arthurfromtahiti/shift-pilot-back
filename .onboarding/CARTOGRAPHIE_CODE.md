@@ -62,15 +62,17 @@ shift-pilot-back/
 
 | Élément | Type | Ligne(s) | Détail |
 |---------|------|----------|--------|
-| `orders` | Data (const array) | 5-10 | Tableau littéral, 4 objets `{id, userId, total, status, createdAt}`. `total` en XPF. Statut ∈ {`"paid"`, `"cancelled"`} (double l). `createdAt` ISO 8601 UTC (CLA-225). |
-| `listOrders()` | Function export | 12-14 | Retourne `orders` triés par id (via `_.sortBy`). |
-| `getOrdersByUser(userId)` | Function export | 16-18 | Filtre par `order.userId === userId`. Fonctionne correctement. |
-| `filterActiveOrders(orderList)` | Function export | 20-22 | Exclut les commandes `"cancelled"`. Bug orthographique corrigé en CLA-195. |
-| `filterByStatus(orderList, status)` | Function export | 24-26 | Filtre par valeur de statut exacte (`order.status === status`). |
-| `getOrderById(id)` | Function export | 28-30 | Lookup par ID via `find()`. Importée dans server.js:6 mais non appelée (route `/orders/:id` inexistante). |
-| Route HTTP | GET /orders | server.js:27-56 | `GET /orders` avec params optionnels `userId`, `active`, `status`, `sort`, `from`, `to` → JSON 200. |
+| `orders` | Data (const array) | 7-12 | Tableau littéral, 4 objets `{id, userId, total, status, createdAt}`. `total` en XPF. Statut ∈ {`"paid"`, `"cancelled"`} (double l). `createdAt` ISO 8601 UTC (CLA-225). |
+| `listOrders()` | Function export | 14-16 | Retourne `orders` triés par id (via `_.sortBy`). |
+| `getOrdersByUser(userId)` | Function export | 18-20 | Filtre par `order.userId === userId`. Fonctionne correctement. |
+| `filterActiveOrders(orderList)` | Function export | 22-24 | Exclut les commandes `"cancelled"`. Bug orthographique corrigé en CLA-195. |
+| `filterByStatus(orderList, status)` | Function export | 26-28 | Filtre par valeur de statut exacte (`order.status === status`). |
+| `getOrderById(id)` | Function export | 30-32 | Lookup par ID via `find()`. Importée dans server.js:6 mais non appelée (route `/orders/:id` inexistante). |
+| `normalize(s)` | Function (interne) | 34-36 | Normalise une chaîne : suppression diacritiques (NFD), conversion minuscules. Utile pour recherche insensible à la casse. |
+| `filterByCustomerName(orderList, customerName)` | Function export | 38-43 | Filtre les commandes par nom de client (substring, insensible à la casse). Exclut les commandes avec `clientName=null`. Chaque objet dans orderList doit porter `clientName` (enrichi par server.js:54-56). SHIAAAAAAAAAAAAAAAAAAAAAAAA-7. |
+| Route HTTP | GET /orders | server.js:27-61 | `GET /orders` avec params optionnels `userId`, `active`, `status`, `sort`, `from`, `to`, `customerName` → JSON 200. |
 
-**Composition des filtres** (`src/server.js:35-55`)
+**Composition des filtres** (`src/server.js:39-60`)
 ```
 1. Si userId fourni → getOrdersByUser(userId)
 2. Sinon → listOrders()
@@ -79,13 +81,15 @@ shift-pilot-back/
 5. Si status fourni → filterByStatus(result, status)
 6. Si from/to fournis (format YYYY-MM-DD valide) → filtre par plage de dates sur createdAt (CLA-186)
 7. Si sort=date_asc → tri croissant par createdAt ; sort=date_desc → tri décroissant (CLA-186)
-8. Enrichir chaque commande avec clientName via getUserById() (server.js:52-54, CLA-187)
-9. Retourner result
+8. Enrichir chaque commande avec clientName via getUserById() (server.js:54-56, CLA-187)
+9. Si customerName fourni → filterByCustomerName(enriched, customerName) (server.js:58, SHIAAAAAAAAAAAAAAAAAAAAAAAA-7)
+10. Retourner result
 ```
 
 **Points critiques**
-- **Import inutilisé** : `getOrderById` exportée dans orders.js:32, aucune route ne l'appelle.
+- **Import inutilisé** : `getOrderById` exportée dans orders.js:30, aucune route ne l'appelle.
 - **Validation d'entrée absente** : `userId=abc` → `NaN` silencieux, pas d'erreur 400.
+- **Ordre de filtrage** : le filtre `customerName` s'applique **après** enrichissement (`clientName`). C'est intentionnel : il filtre sur le nom résolu de l'utilisateur propriétaire.
 
 ### Domaine : `api-http-routage` (technique, priorité support)
 
@@ -123,7 +127,7 @@ shift-pilot-back/
 |---------|--------|------|---------|---|
 | GET | `/users` | server.js:16-17 | utilisateurs | Retourne annuaire complet (200 + JSON) |
 | GET | `/users/:id` | server.js:20-25 | utilisateurs | Retourne utilisateur par ID (200) ou 404 si absent (CLA-187) |
-| GET | `/orders` | server.js:27-56 | commandes | Retourne commandes filtrées et enrichies avec clientName (userId, active, status, from, to, sort) |
+| GET | `/orders` | server.js:27-61 | commandes | Retourne commandes filtrées et enrichies avec clientName (userId, active, status, from, to, sort, customerName) |
 | (any) | (autre) | server.js:58 | — | 404 + `{error: "Not found"}` |
 
 ### Exports du système (pour test/import)
@@ -131,14 +135,15 @@ shift-pilot-back/
 | Export | Fichier | Usage |
 |--------|---------|-------|
 | `listUsers()` | users.js:9-11 | Exposé via GET /users. Importé : server.js:4. |
-| `getUserById(id)` | users.js:13-15 | Importé : server.js:4. Appelé par GET /users/:id (server.js:22) et GET /orders (server.js:53) pour enrichir chaque commande avec clientName (CLA-187). |
+| `getUserById(id)` | users.js:13-15 | Importé : server.js:4. Appelé par GET /users/:id (server.js:22) et GET /orders (server.js:54) pour enrichir chaque commande avec clientName (CLA-187). |
 | `isAdmin(user)` | users.js:17-19 | Exporté ligne 21. **Jamais importé.** |
-| `listOrders()` | orders.js:12-14 | Utilisé via GET /orders sans filtre. Retourne les commandes triées par id. Importé : server.js:6. |
-| `getOrdersByUser(id)` | orders.js:16-18 | Utilisé par GET /orders?userId=. Importé : server.js:6. |
-| `filterActiveOrders(orderList)` | orders.js:20-22 | Utilisé par GET /orders?active=true. Exclut les commandes `"cancelled"`. Importé : server.js:6. |
-| `filterByStatus(orderList, status)` | orders.js:24-26 | Utilisé par GET /orders?status=. Filtre par valeur de statut. Importé : server.js:6. |
-| `getOrderById(id)` | orders.js:28-30 | Importé : server.js:6. **Jamais appelé** (route /orders/:id inexistante). |
-| `server` (http.Server) | server.js:68 | Exporté pour import en test. |
+| `listOrders()` | orders.js:14-16 | Utilisé via GET /orders sans filtre. Retourne les commandes triées par id. Importé : server.js:6. |
+| `getOrdersByUser(id)` | orders.js:18-20 | Utilisé par GET /orders?userId=. Importé : server.js:6. |
+| `filterActiveOrders(orderList)` | orders.js:22-24 | Utilisé par GET /orders?active=true. Exclut les commandes `"cancelled"`. Importé : server.js:6. |
+| `filterByStatus(orderList, status)` | orders.js:26-28 | Utilisé par GET /orders?status=. Filtre par valeur de statut. Importé : server.js:6. |
+| `filterByCustomerName(orderList, customerName)` | orders.js:38-43 | Utilisé par GET /orders?customerName=. Filtre par nom de client (substring, insensible à la casse). Importé : server.js:6. SHIAAAAAAAAAAAAAAAAAAAAAAAA-7. |
+| `getOrderById(id)` | orders.js:30-32 | Importé : server.js:6. **Jamais appelé** (route /orders/:id inexistante). |
+| `server` (http.Server) | server.js:73 | Exporté pour import en test. |
 
 ## Fichiers critiques (hotspots d'évolution)
 

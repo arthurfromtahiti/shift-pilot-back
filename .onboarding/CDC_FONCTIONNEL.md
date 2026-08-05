@@ -20,6 +20,7 @@
 - Peut : lister tous les utilisateurs (`GET /users`)
 - Peut : lister toutes les commandes (`GET /orders`), montant en XPF
 - Peut : filtrer les commandes par utilisateur (`GET /orders?userId=N`)
+- Peut : filtrer les commandes par nom de client (`GET /orders?customerName=<valeur>` — substring, insensible à la casse, via le champ `clientName` résolu à partir du `userId`)
 - **Peut (bug volontaire)** : filtrer les commandes actives (`GET /orders?active=true` — **NE FONCTIONNE PAS** car `filterActiveOrders()` compare à `"canceled"` au lieu de `"cancelled"`)
 - **Interdit** : filtrer les commandes par statut exact (`GET /orders?status=...` — paramètre `status` n'existe pas)
 - **Interdit** : créer, modifier, supprimer (aucune route POST/PUT/PATCH/DELETE)
@@ -149,6 +150,39 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 ]
 ```
 
+#### Variante 2e — Commandes filtrées par nom de client
+
+**Requête** : `GET /orders?customerName=teiki`
+
+**Déroulement**
+1. Dispatcher teste condition `GET /orders` → vrai (`src/server.js:27`)
+2. Lecture de tous les paramètres de requête, dont `customerName = "teiki"` (`src/server.js:34`)
+3. Pas de filtre `userId` → appel `listOrders()` → [101, 102, 103, 104]
+4. Appels de filtres optionnels : aucun (pas de `active`, `status`, `from`, `to`) → résultat inchangé
+5. Enrichissement : chaque commande enrichie avec `clientName` résolu via `getUserById(userId)` (`src/server.js:53-56`)
+   - Commande 101 : `userId=2` → `clientName="Teiki"`
+   - Commande 102 : `userId=2` → `clientName="Teiki"`
+   - Commande 103 : `userId=3` → `clientName="Manoa"`
+   - Commande 104 : `userId=3` → `clientName="Manoa"`
+6. `customerNameParam = "teiki"` est non-null → appel `filterByCustomerName(enriched, "teiki")` (`src/server.js:58`)
+7. `filterByCustomerName()` normalise aiguille et champs :
+   - Normalisation : diacritiques supprimés, conversion minuscules (`normalize()`, `src/routes/orders.js:34-36`)
+   - Aiguille normalisée : `"teiki"` → `"teiki"`
+   - Commande 101 : `clientName="Teiki"` → normalisé `"teiki"` → `includes("teiki")` = true → conservée
+   - Commande 102 : `clientName="Teiki"` → normalisé `"teiki"` → `includes("teiki")` = true → conservée
+   - Commande 103 : `clientName="Manoa"` → normalisé `"manoa"` → `includes("teiki")` = false → exclue
+   - Commande 104 : `clientName="Manoa"` → normalisé `"manoa"` → `includes("teiki")` = false → exclue
+
+**Résultat** : 2 commandes (101 et 102 de Teiki)
+```json
+[
+  { "id": 101, "userId": 2, "total": 42, "status": "paid", "createdAt": "2024-01-10T08:00:00Z", "clientName": "Teiki", "currency": "XPF" },
+  { "id": 102, "userId": 2, "total": 18, "status": "cancelled", "createdAt": "2024-02-20T14:30:00Z", "clientName": "Teiki", "currency": "XPF" }
+]
+```
+
+**Particularité** : le filtre `customerName` est appliqué **après** l'enrichissement (`clientName`). Un `userId` sans utilisateur correspondant (`clientName=null`) est toujours exclu du résultat du filtre, même si aucune aiguille n'est fournie.
+
 ### Parcours 3 — Tentative d'accès refusé ou mal formé
 
 **Requête** : `GET /unknown`, `POST /users`, `GET /orders?userId=abc` (userId invalide)
@@ -171,12 +205,13 @@ Les utilisateurs portent un champ `role` ∈ {`admin`, `customer`} (`src/routes/
 
 ### Commandes
 
-1. **Filtre `userId` (fonctionnel)** : `GET /orders?userId=N` filtre par égalité stricte (`order.userId === N`). Paramètre converti en nombre entier avant comparaison. Si `userId` n'existe pas (ex. `userId=99`), retour 200 + `[]` (liste vide, pas erreur 404) — `src/routes/orders.js:14-16`.
-2. **Filtre `active` (BUG VOLONTAIRE — NE FONCTIONNE PAS)** : `GET /orders?active=true` **ne filtre rien** car `filterActiveOrders()` compare `order.status !== "canceled"` (orthographe US) au lieu de `"cancelled"` (données en orthographe GB). La condition ne match jamais. Toutes les commandes, y compris les annulées, passent à travers — `src/routes/orders.js:22-24`, `src/server.js:23`.
-3. **Paramètre `status` (n'existe pas)** : `GET /orders?status=paid` ne fonctionne pas car le dispatcher ne lit pas ce paramètre. Seuls `userId` et `active` sont interprétés — `src/server.js:19-20`.
-4. **Statuts de commande** : enum implicite = {`"paid"`, `"cancelled"`} (orthographe britannique, double `l`) — `src/routes/orders.js:4-8`.
-5. **Méthode GET exclusive** : seul `GET` répond sur `/orders`. Autres méthodes → 404.
-6. **Lien utilisateur (non enforced)** : chaque commande lie un `userId` à un utilisateur (données cohérentes), mais aucune vérification ne force cette contrainte dans le code. Un `userId` invalide ne génère pas d'erreur, juste une liste vide.
+1. **Filtre `userId` (fonctionnel)** : `GET /orders?userId=N` filtre par égalité stricte (`order.userId === N`). Paramètre converti en nombre entier avant comparaison. Si `userId` n'existe pas (ex. `userId=99`), retour 200 + `[]` (liste vide, pas erreur 404) — `src/routes/orders.js:18-20`.
+2. **Filtre `active` (BUG VOLONTAIRE — NE FONCTIONNE PAS)** : `GET /orders?active=true` **ne filtre rien** car `filterActiveOrders()` compare `order.status !== "canceled"` (orthographe US) au lieu de `"cancelled"` (données en orthographe GB). La condition ne match jamais. Toutes les commandes, y compris les annulées, passent à travers — `src/routes/orders.js:22-24`, `src/server.js:41`.
+3. **Filtre `customerName` (fonctionnel)** : `GET /orders?customerName=<valeur>` filtre les commandes par nom de client. Recherche **substring insensible à la casse** via normalisation Unicode (suppression diacritiques, minuscules) — `src/routes/orders.js:38-43`, `src/server.js:58`. Chaque commande est d'abord enrichie avec `clientName` résolu depuis `userId` avant filtre. Les commandes avec `clientName=null` sont exclues. Format : `GET /orders?customerName=teiki` retourne commandes 101 et 102 (toutes deux liées à l'utilisateur Teiki).
+4. **Paramètre `status` (n'existe pas)** : `GET /orders?status=paid` ne fonctionne pas car le dispatcher ne lit pas ce paramètre. Seuls `userId`, `active` et `customerName` sont interprétés — `src/server.js:28-34`.
+5. **Statuts de commande** : enum implicite = {`"paid"`, `"cancelled"`} (orthographe britannique, double `l`) — `src/routes/orders.js:7-12`.
+6. **Méthode GET exclusive** : seul `GET` répond sur `/orders`. Autres méthodes → 404.
+7. **Lien utilisateur (non enforced)** : chaque commande lie un `userId` à un utilisateur (données cohérentes), mais aucune vérification ne force cette contrainte dans le code. Un `userId` invalide ne génère pas d'erreur, juste une liste vide.
 
 ## Données
 
