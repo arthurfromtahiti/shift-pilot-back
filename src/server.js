@@ -3,7 +3,7 @@ const { URL } = require("node:url");
 
 const { listUsers, getUserById } = require("./routes/users");
 
-const { listOrders, getOrdersByUser, filterActiveOrders, filterByStatus, filterByCustomerName, DEFAULT_CURRENCY } = require("./routes/orders");
+const { listOrders, getOrdersByUser, filterActiveOrders, getOrderById, filterByStatus, filterByCustomerName, DEFAULT_CURRENCY } = require("./routes/orders");
 
 function sendJson(res, status, body) {
   res.writeHead(status, { "Content-Type": "application/json" });
@@ -70,6 +70,14 @@ const server = http.createServer((req, res) => {
     const user = getUserById(Number(userByIdMatch[1]));
     if (user === null) return sendJson(res, 404, { error: "Not found" });
     return sendJson(res, 200, user);
+  }
+
+  const orderHistoryMatch = req.method === "GET" && /^\/orders\/(\d+)\/history$/.exec(url.pathname);
+  if (orderHistoryMatch) {
+    const id = parseInt(orderHistoryMatch[1], 10);
+    const order = getOrderById(id);
+    if (order === null) return sendJson(res, 404, { error: "Not found" });
+    return sendJson(res, 200, { orderId: order.id, history: order.statusHistory });
   }
 
   if (url.pathname === "/orders/export.csv" && req.method === "GET") {

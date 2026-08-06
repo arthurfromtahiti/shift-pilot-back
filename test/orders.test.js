@@ -478,6 +478,19 @@ test("GET /orders/export.csv?from=2024-02-01&to=2024-03-31 retourne uniquement i
   assert.deepEqual(ids, [102, 103], "la plage fév–mars doit inclure uniquement id102 et id103");
 });
 
+// SHIAAAAAAAAAAAAAAAAAAAAAAAA-342 — GET /orders/:id/history
+
+test("GET /orders/101/history → 200 avec statusHistory de la commande", async () => {
+  const result = await get("/orders/101/history");
+  assert.deepEqual(result, { orderId: 101, history: [{ status: "paid", at: "2024-01-10T08:00:00Z" }] });
+});
+
+test("GET /orders/9999/history → 404 avec { error: 'Not found' }", async () => {
+  const { statusCode, body } = await getCsvResponse("/orders/9999/history");
+  assert.equal(statusCode, 404);
+  assert.deepEqual(JSON.parse(body), { error: "Not found" });
+});
+
 test("GET /orders/export.csv chaque ligne contient les bons champs pour chaque commande", async () => {
   const { body } = await getCsvResponse("/orders/export.csv");
   const lines = body.replace(/^\uFEFF/, "").split("\r\n").filter((l) => l.length > 0);
