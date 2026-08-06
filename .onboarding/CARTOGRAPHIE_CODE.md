@@ -122,7 +122,7 @@ shift-pilot-back/
 | `sendJson(res, status, body)` | Function | 8-11 | Écrit en-têtes + sérialise JSON. Code réutilisable. |
 | `getFilteredOrders(url)` | Function | 14-50 | Pipeline filtres étapes 1–9 partagée par GET /orders et GET /orders/export.csv. Lit les query params, applique les filtres, enrichit avec clientName/clientEmail/currency. |
 | `csvEscape(value)` | Function | 53-59 | Échappement RFC 4180 avec `;` comme délimiteur. Quote les valeurs contenant `;`, `"`, CR ou LF, et double les guillemets internes. |
-| Dispatcher | if-else block | 61-133 | Parse `req.url`, teste méthode+chemin, délègue ou retourne 404. |
+| Dispatcher | if-else block | 61-132 | Parse `req.url`, teste méthode+chemin, délègue ou retourne 404. |
 | `new URL(req.url, ...)` | URL parsing | 62 | Parse relative à `http://${req.headers.host}` — préserve chemin + query string. |
 | Routes GET /users | if-block | 64-66 | Branchement `→ listUsers()`. |
 | Routes GET /users/:id | if-block | 68-73 | Lookup par ID via `getUserById()` ; retourne 404 si absent (CLA-187). |
@@ -211,7 +211,7 @@ Aucune. Tous les fichiers source ont été lus intégralement.
 
 ## Preuves
 
-**Architecture générale** : src/server.js:1-128 (lu intégralement, 128 lignes)
+**Architecture générale** : src/server.js:1-142 (lu intégralement, 142 lignes après ajout GET /orders/:id et GET /orders/export.csv)
 
 **Domaine utilisateurs** : src/routes/users.js:1-21 (lu intégralement, 21 lignes)
 
