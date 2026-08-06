@@ -280,6 +280,21 @@ test("filterByCustomerName exclut les commandes dont clientName est null", () =>
   );
 });
 
+// SHIAAAAAAAAAAAAAAAAAAAAAAAA-289 — le champ clientName peut être absent (undefined), pas seulement null
+test("filterByCustomerName ne plante pas si clientName est absent (undefined)", () => {
+  const { filterByCustomerName } = require("../src/routes/orders");
+  const sample = [
+    { id: 1 },
+    { id: 2 },
+    { id: 3 },
+  ];
+  assert.doesNotThrow(
+    () => filterByCustomerName(sample, "teiki"),
+    "filterByCustomerName ne doit pas lever d'exception sur des commandes sans champ clientName",
+  );
+  assert.deepEqual(filterByCustomerName(sample, "teiki"), [], "doit retourner [] si aucune commande n'a clientName");
+});
+
 test("GET /orders?customerName=teiki retourne uniquement les commandes de Teiki", async () => {
   const result = await get("/orders?customerName=teiki");
   const ids = result.orders.map((o) => o.id).sort((a, b) => a - b);
