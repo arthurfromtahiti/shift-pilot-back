@@ -31,7 +31,7 @@ shift-pilot-back/
 | Fichier | Rôle | Confiance |
 |---------|------|-----------|
 | `src/routes/users.js` | Données + logique métier | high |
-| `src/server.js` (lignes 4, 16-17, 20-25) | Dispatcher HTTP vers users | high |
+| `src/server.js` (lignes 4, 64-65, 68-73) | Dispatcher HTTP vers users | high |
 
 **Contenu clé**
 
@@ -39,14 +39,14 @@ shift-pilot-back/
 |---------|------|----------|--------|
 | `users` | Data (const array) | 3-7 | Tableau littéral, 3 objets `{id, name, email, role}`. Données figées en mémoire. |
 | `listUsers()` | Function export | 9-11 | Retourne `users` complet. Aucun paramètre, aucun filtre. |
-| `getUserById(id)` | Function export | 13-15 | Lookup par ID via `find()`. Importée dans server.js:4. Appelée par GET /users/:id (server.js:22) et par GET /orders (server.js:53) pour enrichir chaque commande avec `clientName` et `clientEmail` (CLA-187, SHIAAAAAAAAAAAAAAAAAAAAAAAA-240). |
+| `getUserById(id)` | Function export | 13-15 | Lookup par ID via `find()`. Importée dans server.js:4. Appelée par GET /users/:id (server.js:70) et par `getFilteredOrders` (server.js:43) pour enrichir chaque commande avec `clientName` et `clientEmail` (CLA-187, SHIAAAAAAAAAAAAAAAAAAAAAAAA-240). |
 | `isAdmin(user)` | Function export | 17-19 | Prédicat : `user !== null && user.role === "admin"`. Exportée, jamais importée. |
-| Route HTTP | GET /users | server.js:16-17 | `GET /users` → `listUsers()` → JSON 200 |
-| Route HTTP | GET /users/:id | server.js:20-25 | `GET /users/:id` → `getUserById(id)` → JSON 200 / 404 si absent (CLA-187) |
+| Route HTTP | GET /users | server.js:64-65 | `GET /users` → `listUsers()` → JSON 200 |
+| Route HTTP | GET /users/:id | server.js:68-73 | `GET /users/:id` → `getUserById(id)` → JSON 200 / 404 si absent (CLA-187) |
 
 **Points critiques**
 - **Export mort** : `isAdmin` exporté ligne 21 de users.js, jamais consommé — squelette d'autorisation déconnecté.
-- **Données brutes en réponse** : champ `role` exposé sans contrôle d'accès (src/routes/users.js:4-6, src/server.js:16-17).
+- **Données brutes en réponse** : champ `role` exposé sans contrôle d'accès (src/routes/users.js:4-6, src/server.js:64-65).
 
 ### Domaine : `commandes` (métier, priorité cœur)
 
@@ -56,7 +56,7 @@ shift-pilot-back/
 | Fichier | Rôle | Confiance |
 |---------|------|-----------|
 | `src/routes/orders.js` | Données + logique métier | high |
-| `src/server.js` (lignes 6, 27-56) | Dispatcher HTTP vers orders | high |
+| `src/server.js` (lignes 6, 13-50, 75-108) | Dispatcher HTTP vers orders | high |
 
 **Contenu clé**
 
@@ -69,11 +69,12 @@ shift-pilot-back/
 | `filterByStatus(orderList, status)` | Function export | 26-28 | Filtre par valeur de statut exacte (`order.status === status`). |
 | `getOrderById(id)` | Function export | 30-32 | Lookup par ID via `find()`. Importée dans server.js:6 mais non appelée (route `/orders/:id` inexistante). |
 | `normalize(s)` | Function (interne) | 34-36 | Normalise une chaîne : suppression diacritiques (NFD), conversion minuscules. Utile pour recherche insensible à la casse. |
-| `filterByCustomerName(orderList, customerName)` | Function export | 38-43 | Filtre les commandes par nom de client (substring, insensible à la casse). Exclut les commandes avec `clientName=null`. Chaque objet dans orderList doit porter `clientName` (enrichi par server.js:55-58). SHIAAAAAAAAAAAAAAAAAAAAAAAA-7. |
-| `DEFAULT_CURRENCY` | Constant export | 5 | Devise par défaut `"XPF"`. Utilisée lors de l'enrichissement pour ajouter le champ `currency` à chaque commande (server.js:57, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235). |
-| Route HTTP | GET /orders | server.js:27-74 | `GET /orders` avec params optionnels `userId`, `active`, `status`, `sort` (date_asc, date_desc, amount_asc, amount_desc), `from`, `to`, `customerName`, `page`, `limit` → JSON 200 avec réponse structurée `{ orders: [...], pagination: { total, page, limit, totalPages } }`. Chaque commande inclut `clientName`, `clientEmail`, `currency` en plus des champs natifs (SHIAAAAAAAAAAAAAAAAAAAAAAAA-235). |
+| `filterByCustomerName(orderList, customerName)` | Function export | 38-43 | Filtre les commandes par nom de client (substring, insensible à la casse). Exclut les commandes avec `clientName=null`. Chaque objet dans orderList doit porter `clientName` (enrichi par server.js:42-45). SHIAAAAAAAAAAAAAAAAAAAAAAAA-7. |
+| `DEFAULT_CURRENCY` | Constant export | 5 | Devise par défaut `"XPF"`. Utilisée lors de l'enrichissement pour ajouter le champ `currency` à chaque commande (server.js:44, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235). |
+| Route HTTP | GET /orders | server.js:93-108 | `GET /orders` avec params optionnels `userId`, `active`, `status`, `sort` (date_asc, date_desc, amount_asc, amount_desc), `from`, `to`, `customerName`, `page`, `limit` → JSON 200 avec réponse structurée `{ orders: [...], pagination: { total, page, limit, totalPages } }`. Chaque commande inclut `clientName`, `clientEmail`, `currency` en plus des champs natifs (SHIAAAAAAAAAAAAAAAAAAAAAAAA-235). |
+| Route HTTP | GET /orders/export.csv | server.js:75-91 | Export CSV sans pagination. BOM UTF-8 (`\uFEFF`), Content-Type `text/csv; charset=utf-8`, Content-Disposition avec date UTC. En-tête `id;date;clientName;clientEmail;montant;devise;statut`. Mêmes filtres que GET /orders via `getFilteredOrders()` sans page/limit. (SHIAAAAAAAAAAAAAAAAAAAAAAAA-310) |
 
-**Composition des filtres** (`src/server.js:39-73`)
+**Composition des filtres** — étapes 1–9 dans `getFilteredOrders(url)` (`src/server.js:13-50`), étapes 10–12 dans GET /orders (`src/server.js:96-107`)
 ```
 1. Si userId fourni → getOrdersByUser(userId)
 2. Sinon → listOrders()
@@ -87,11 +88,12 @@ shift-pilot-back/
    - sort=amount_asc → tri croissant par total (SHIAAAAAAAAAAAAAAAAAAAAAAAA-235)
    - sort=amount_desc → tri décroissant par total (SHIAAAAAAAAAAAAAAAAAAAAAAAA-235)
    - autre → pas de tri (valeurs ignorées silencieusement)
-8. Enrichir chaque commande avec clientName, clientEmail, et currency via getUserById() + DEFAULT_CURRENCY (server.js:55-58, CLA-187, SHIAAAAAAAAAAAAAAAAAAAAAAAA-240, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235)
-9. Si customerName fourni → filterByCustomerName(enriched, customerName) (server.js:60, SHIAAAAAAAAAAAAAAAAAAAAAAAA-7)
-10. Pagination : lire params page et limit, parser avec clampage silencieux (page défaut 1, min 1 ; limit défaut 20, min 1, max 100) (server.js:62-67, SHIAAAAAAAAAAAAAAAAAAAAAAAA-249, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235)
-11. Calculer total (nb items enrichis), totalPages (≥1), découper slice par (page-1)*limit (server.js:69-71, SHIAAAAAAAAAAAAAAAAAAAAAAAA-249, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235)
-12. Retourner objet structuré { orders: [...], pagination: { total, page, limit, totalPages } } (server.js:73, SHIAAAAAAAAAAAAAAAAAAAAAAAA-249, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235)
+8. Enrichir chaque commande avec clientName, clientEmail, et currency via getUserById() + DEFAULT_CURRENCY (server.js:42-45, CLA-187, SHIAAAAAAAAAAAAAAAAAAAAAAAA-240, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235)
+9. Si customerName fourni → filterByCustomerName(enriched, customerName) (server.js:47, SHIAAAAAAAAAAAAAAAAAAAAAAAA-7)
+   — GET /orders/export.csv s'arrête ici (retourne getFilteredOrders(url) complet, sans pagination)
+10. Pagination : lire params page et limit, parser avec clampage silencieux (page défaut 1, min 1 ; limit défaut 20, min 1, max 100) (server.js:96-101, SHIAAAAAAAAAAAAAAAAAAAAAAAA-249, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235)
+11. Calculer total (nb items enrichis), totalPages (≥1), découper slice par (page-1)*limit (server.js:103-105, SHIAAAAAAAAAAAAAAAAAAAAAAAA-249, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235)
+12. Retourner objet structuré { orders: [...], pagination: { total, page, limit, totalPages } } (server.js:107, SHIAAAAAAAAAAAAAAAAAAAAAAAA-249, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235)
 ```
 
 **Points critiques**
@@ -113,17 +115,20 @@ shift-pilot-back/
 | Élément | Type | Ligne(s) | Détail |
 |---------|------|----------|--------|
 | `sendJson(res, status, body)` | Function | 8-11 | Écrit en-têtes + sérialise JSON. Code réutilisable. |
-| Dispatcher | if-else block | 13-77 | Parse `req.url`, teste méthode+chemin, délègue ou retourne 404. |
-| `new URL(req.url, ...)` | URL parsing | 14 | Parse relative à `http://${req.headers.host}` — préserve chemin + query string. |
-| Routes GET /users | if-block | 16-17 | Branchement `→ listUsers()`. |
-| Routes GET /users/:id | if-block | 20-25 | Lookup par ID via `getUserById()` ; retourne 404 si absent (CLA-187). |
-| Routes GET /orders | if-block | 27-74 | Branchement + orchestration filtres (userId, active, status, from, to, sort). Tri et filtre par date ajoutés en CLA-186. Chaque commande enrichie avec `clientName` et `clientEmail` via `getUserById()` (server.js:55-58, CLA-187, SHIAAAAAAAAAAAAAAAAAAAAAAAA-240). Pagination ajoutée (page, limit) avec clampage silencieux et découpage de la liste (server.js:62-71, SHIAAAAAAAAAAAAAAAAAAAAAAAA-249). Réponse structurée en { orders, pagination } au lieu d'un array nu (SHIAAAAAAAAAAAAAAAAAAAAAAAA-249). **C'est ici que la logique métier est composée.** |
-| Fallback 404 | if-block | 76 | Tout ce qui ne match pas → 404 + `{error: "Not found"}`. |
-| `require.main === module` | Conditional | 80-84 | Démarre le serveur uniquement si invoqué directement (pas si importé en test). |
-| `module.exports = server` | Export | 86 | Permet d'importer le serveur en test et de le décorer (ex. faire des requêtes HTTP). |
+| `getFilteredOrders(url)` | Function | 13-50 | Pipeline filtres étapes 1–9 partagée par GET /orders et GET /orders/export.csv. Lit les query params, applique les filtres, enrichit avec clientName/clientEmail/currency. |
+| `csvEscape(value)` | Function | 52-59 | Échappement RFC 4180 avec `;` comme délimiteur. Quote les valeurs contenant `;`, `"`, CR ou LF, et double les guillemets internes. |
+| Dispatcher | if-else block | 61-111 | Parse `req.url`, teste méthode+chemin, délègue ou retourne 404. |
+| `new URL(req.url, ...)` | URL parsing | 62 | Parse relative à `http://${req.headers.host}` — préserve chemin + query string. |
+| Routes GET /users | if-block | 64-65 | Branchement `→ listUsers()`. |
+| Routes GET /users/:id | if-block | 68-73 | Lookup par ID via `getUserById()` ; retourne 404 si absent (CLA-187). |
+| Routes GET /orders/export.csv | if-block | 75-91 | Export CSV sans pagination. BOM UTF-8, Content-Type `text/csv; charset=utf-8`, Content-Disposition avec date UTC, en-tête `id;date;clientName;clientEmail;montant;devise;statut`. Appelle `getFilteredOrders()` sans page/limit. (SHIAAAAAAAAAAAAAAAAAAAAAAAA-310) |
+| Routes GET /orders | if-block | 93-108 | Branchement + pagination (étapes 10–12). Appelle `getFilteredOrders()`, applique page/limit avec clampage silencieux, retourne `{ orders, pagination }` (SHIAAAAAAAAAAAAAAAAAAAAAAAA-249). **C'est ici que la logique métier est composée.** |
+| Fallback 404 | if-block | 110 | Tout ce qui ne match pas → 404 + `{error: "Not found"}`. |
+| `require.main === module` | Conditional | 113-117 | Démarre le serveur uniquement si invoqué directement (pas si importé en test). |
+| `module.exports = server` | Export | 120 | Permet d'importer le serveur en test et de le décorer (ex. faire des requêtes HTTP). |
 
 **Points critiques**
-- **Multi-responsabilité** : parsing HTTP + routage + orchestration métier dans un seul fichier. Actuellement 87 lignes (logique d'enrichissement + pagination pour GET /orders, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235). Debt dès la 5ème-6ème route ajoutée.
+- **Multi-responsabilité** : parsing HTTP + routage + orchestration métier dans un seul fichier. Actuellement 120 lignes (logique d'enrichissement + pagination pour GET /orders + export CSV, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235, SHIAAAAAAAAAAAAAAAAAAAAAAAA-310). Debt dès la 5ème-6ème route ajoutée.
 - **Aucun middleware transverse** : pas de try/catch global, pas de middleware d'erreur. Une exception non attrapée crasherait le processus sans réponse HTTP.
 - **Seul point de modification pour toute évolution fonctionnelle** : ajouter une route, un paramètre, un filtre passe obligatoirement par ce fichier.
 
@@ -133,26 +138,27 @@ shift-pilot-back/
 
 | Méthode | Chemin | Code | Domaine | Comportement |
 |---------|--------|------|---------|---|
-| GET | `/users` | server.js:16-17 | utilisateurs | Retourne annuaire complet (200 + JSON) |
-| GET | `/users/:id` | server.js:20-25 | utilisateurs | Retourne utilisateur par ID (200) ou 404 si absent (CLA-187) |
-| GET | `/orders` | server.js:27-74 | commandes | Retourne commandes filtrées et enrichies avec clientName, clientEmail, currency (userId, active, status, from, to, sort, customerName, page, limit) ; réponse structurée { orders: [...], pagination: { total, page, limit, totalPages } }. Sort support date_asc, date_desc, amount_asc, amount_desc (SHIAAAAAAAAAAAAAAAAAAAAAAAA-235). |
-| (any) | (autre) | server.js:76 | — | 404 + `{error: "Not found"}` |
+| GET | `/users` | server.js:64-65 | utilisateurs | Retourne annuaire complet (200 + JSON) |
+| GET | `/users/:id` | server.js:68-73 | utilisateurs | Retourne utilisateur par ID (200) ou 404 si absent (CLA-187) |
+| GET | `/orders/export.csv` | server.js:75-91 | commandes | Export CSV de toutes les commandes filtrées (sans pagination). BOM UTF-8, délimiteur `;`, filename commandes-YYYY-MM-DD.csv. Mêmes filtres que GET /orders sans page/limit. (SHIAAAAAAAAAAAAAAAAAAAAAAAA-310) |
+| GET | `/orders` | server.js:93-108 | commandes | Retourne commandes filtrées et enrichies avec clientName, clientEmail, currency (userId, active, status, from, to, sort, customerName, page, limit) ; réponse structurée { orders: [...], pagination: { total, page, limit, totalPages } }. Sort support date_asc, date_desc, amount_asc, amount_desc (SHIAAAAAAAAAAAAAAAAAAAAAAAA-235). |
+| (any) | (autre) | server.js:110 | — | 404 + `{error: "Not found"}` |
 
 ### Exports du système (pour test/import)
 
 | Export | Fichier | Usage |
 |--------|---------|-------|
 | `listUsers()` | users.js:9-11 | Exposé via GET /users. Importé : server.js:4. |
-| `getUserById(id)` | users.js:13-15 | Importé : server.js:4. Appelé par GET /users/:id (server.js:22) et GET /orders (server.js:54) pour enrichir chaque commande avec clientName et clientEmail (CLA-187, SHIAAAAAAAAAAAAAAAAAAAAAAAA-240). |
+| `getUserById(id)` | users.js:13-15 | Importé : server.js:4. Appelé par GET /users/:id (server.js:70) et par `getFilteredOrders` (server.js:43) pour enrichir chaque commande avec clientName et clientEmail (CLA-187, SHIAAAAAAAAAAAAAAAAAAAAAAAA-240). |
 | `isAdmin(user)` | users.js:17-19 | Exporté ligne 21. **Jamais importé.** |
 | `listOrders()` | orders.js:14-16 | Utilisé via GET /orders sans filtre. Retourne les commandes triées par id. Importé : server.js:6. |
 | `getOrdersByUser(id)` | orders.js:18-20 | Utilisé par GET /orders?userId=. Importé : server.js:6. |
 | `filterActiveOrders(orderList)` | orders.js:22-24 | Utilisé par GET /orders?active=true. Exclut les commandes `"cancelled"`. Importé : server.js:6. |
 | `filterByStatus(orderList, status)` | orders.js:26-28 | Utilisé par GET /orders?status=. Filtre par valeur de statut. Importé : server.js:6. |
 | `filterByCustomerName(orderList, customerName)` | orders.js:38-43 | Utilisé par GET /orders?customerName=. Filtre par nom de client (substring, insensible à la casse). Importé : server.js:6. SHIAAAAAAAAAAAAAAAAAAAAAAAA-7. |
-| `DEFAULT_CURRENCY` | orders.js:5 | Devise par défaut `"XPF"`. Importé : server.js:6. Utilisé pour enrichir chaque commande avec le champ `currency` (server.js:57, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235). |
+| `DEFAULT_CURRENCY` | orders.js:5 | Devise par défaut `"XPF"`. Importé : server.js:6. Utilisé pour enrichir chaque commande avec le champ `currency` (server.js:44, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235). |
 | `getOrderById(id)` | orders.js:30-32 | Importé : server.js:6. **Jamais appelé** (route /orders/:id inexistante). |
-| `server` (http.Server) | server.js:86 | Exporté pour import en test. |
+| `server` (http.Server) | server.js:120 | Exporté pour import en test. |
 
 ## Fichiers critiques (hotspots d'évolution)
 
@@ -161,9 +167,9 @@ shift-pilot-back/
 **Criticité** : haute. Tout changement fonctionnel passe ici.
 
 **Changements attendus**
-- Ajouter une route → nouvel `if` vers la ligne ~20
-- Ajouter un paramètre de requête → lecture supplémentaire vers la ligne ~28-33
-- Ajouter un middleware → wrapping du dispatcher ligne ~13-59
+- Ajouter une route → nouvel `if` dans le dispatcher vers la ligne ~65
+- Ajouter un paramètre de requête filtre → lecture supplémentaire dans `getFilteredOrders` vers la ligne ~20
+- Ajouter un middleware → wrapping du dispatcher ligne ~61-111
 - Ajouter de la gestion d'erreur → try/catch autour du handler
 
 **Risques**
@@ -184,7 +190,7 @@ shift-pilot-back/
 
 **Criticité** : faible. Décision produit requise.
 
-**État actuel** : `getUserById` est **utilisée** dans GET /users/:id (server.js:22) et dans GET /orders (server.js:53) pour enrichir avec clientName et clientEmail (CLA-187, SHIAAAAAAAAAAAAAAAAAAAAAAAA-240). `isAdmin` reste un export mort.
+**État actuel** : `getUserById` est **utilisée** dans GET /users/:id (server.js:70) et dans `getFilteredOrders` (server.js:43) pour enrichir avec clientName et clientEmail (CLA-187, SHIAAAAAAAAAAAAAAAAAAAAAAAA-240). `isAdmin` reste un export mort.
 
 **Options restantes**
 - (a) Câbler contrôle d'accès (utiliser `isAdmin`)
@@ -196,7 +202,7 @@ Aucune. Tous les fichiers source ont été lus intégralement.
 
 ## Preuves
 
-**Architecture générale** : src/server.js:1-68 (lu intégralement, 68 lignes)
+**Architecture générale** : src/server.js:1-120 (lu intégralement, 120 lignes)
 
 **Domaine utilisateurs** : src/routes/users.js:1-21 (lu intégralement, 21 lignes)
 

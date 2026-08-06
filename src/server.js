@@ -81,7 +81,7 @@ const server = http.createServer((req, res) => {
         .map(csvEscape)
         .join(";")
     );
-    const csv = "﻿" + [header, ...rows].join("\r\n");
+    const csv = "\uFEFF" + [header, ...rows].join("\r\n");
     res.writeHead(200, {
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": `attachment; filename="commandes-${today}.csv"`,

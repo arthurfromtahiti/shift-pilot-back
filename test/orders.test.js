@@ -431,7 +431,7 @@ test("GET /orders/export.csv sans filtre retourne BOM + en-tête + 4 lignes de d
   const { body } = await getCsvResponse("/orders/export.csv");
   // BOM présent en premier caractère
   assert.equal(body.charCodeAt(0), 0xFEFF, "le fichier doit commencer par le BOM \\uFEFF");
-  const lines = body.replace(/^﻿/, "").split("\r\n").filter((l) => l.length > 0);
+  const lines = body.replace(/^\uFEFF/, "").split("\r\n").filter((l) => l.length > 0);
   assert.equal(lines[0], "id;date;clientName;clientEmail;montant;devise;statut", "en-tête CSV incorrect");
   assert.equal(lines.length - 1, 4, "4 lignes de données attendues (toutes les commandes)");
 });
@@ -454,7 +454,7 @@ test("GET /orders/export.csv retourne Content-Type text/csv et Content-Dispositi
 
 test("GET /orders/export.csv?status=paid retourne uniquement les commandes paid", async () => {
   const { body } = await getCsvResponse("/orders/export.csv?status=paid");
-  const lines = body.replace(/^﻿/, "").split("\r\n").filter((l) => l.length > 0);
+  const lines = body.replace(/^\uFEFF/, "").split("\r\n").filter((l) => l.length > 0);
   // ligne 0 = en-tête, lignes suivantes = données
   const dataLines = lines.slice(1);
   assert.ok(dataLines.length > 0, "au moins une commande paid attendue");
@@ -467,20 +467,20 @@ test("GET /orders/export.csv?status=paid retourne uniquement les commandes paid"
 
 test("GET /orders/export.csv?from=2024-01-01&to=2024-12-31 retourne les 4 commandes (toutes en 2024)", async () => {
   const { body } = await getCsvResponse("/orders/export.csv?from=2024-01-01&to=2024-12-31");
-  const lines = body.replace(/^﻿/, "").split("\r\n").filter((l) => l.length > 0);
+  const lines = body.replace(/^\uFEFF/, "").split("\r\n").filter((l) => l.length > 0);
   assert.equal(lines.length - 1, 4, "toutes les commandes sont en 2024 : 4 lignes attendues");
 });
 
 test("GET /orders/export.csv?from=2024-02-01&to=2024-03-31 retourne uniquement id102 et id103", async () => {
   const { body } = await getCsvResponse("/orders/export.csv?from=2024-02-01&to=2024-03-31");
-  const lines = body.replace(/^﻿/, "").split("\r\n").filter((l) => l.length > 0);
+  const lines = body.replace(/^\uFEFF/, "").split("\r\n").filter((l) => l.length > 0);
   const ids = lines.slice(1).map((l) => Number(l.split(";")[0])).sort((a, b) => a - b);
   assert.deepEqual(ids, [102, 103], "la plage fév–mars doit inclure uniquement id102 et id103");
 });
 
 test("GET /orders/export.csv chaque ligne contient les bons champs pour chaque commande", async () => {
   const { body } = await getCsvResponse("/orders/export.csv");
-  const lines = body.replace(/^﻿/, "").split("\r\n").filter((l) => l.length > 0);
+  const lines = body.replace(/^\uFEFF/, "").split("\r\n").filter((l) => l.length > 0);
   // Commande 101 : id=101, date=2024-01-10, clientName=Teiki, clientEmail=teiki@example.pf, montant=42, devise=XPF, statut=paid
   const line101 = lines.slice(1).find((l) => l.startsWith("101;"));
   assert.ok(line101, "commande 101 attendue dans l'export");
