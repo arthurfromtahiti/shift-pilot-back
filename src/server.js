@@ -50,6 +50,8 @@ function getFilteredOrders(url) {
   // client sort — applied after enrichment because clientName only exists after getUserById resolution
   if (sortParam === "client_asc") enriched = [...enriched].sort((a, b) => (a.clientName ?? "").localeCompare(b.clientName ?? ""));
   else if (sortParam === "client_desc") enriched = [...enriched].sort((a, b) => (b.clientName ?? "").localeCompare(a.clientName ?? ""));
+  else if (sortParam === "status_asc") enriched = [...enriched].sort((a, b) => (a.status ?? "").localeCompare(b.status ?? ""));
+  else if (sortParam === "status_desc") enriched = [...enriched].sort((a, b) => (b.status ?? "").localeCompare(a.status ?? ""));
 
   return enriched;
 }
