@@ -45,12 +45,12 @@ shift-pilot-back/
 | `listUsers()` | Function export | 9-11 | Retourne `users` complet. Aucun paramètre, aucun filtre. |
 | `getUserById(id)` | Function export | 13-15 | Lookup par ID via `find()`. Importée dans server.js:4. Appelée par GET /users/:id (server.js:70) et par `getFilteredOrders` (server.js:43) pour enrichir chaque commande avec `clientName` et `clientEmail` (CLA-187, SHIAAAAAAAAAAAAAAAAAAAAAAAA-240). |
 | `isAdmin(user)` | Function export | 17-19 | Prédicat : `user !== null && user.role === "admin"`. Exportée, jamais importée. |
-| Route HTTP | GET /users | server.js:64-65 | `GET /users` → `listUsers()` → JSON 200 |
+| Route HTTP | GET /users | server.js:64-66 | `GET /users` → `listUsers()` → JSON 200 |
 | Route HTTP | GET /users/:id | server.js:68-73 | `GET /users/:id` → `getUserById(id)` → JSON 200 / 404 si absent (CLA-187) |
 
 **Points critiques**
 - **Export mort** : `isAdmin` exporté ligne 21 de users.js, jamais consommé — squelette d'autorisation déconnecté.
-- **Données brutes en réponse** : champ `role` exposé sans contrôle d'accès (src/routes/users.js:4-6, src/server.js:64-65).
+- **Données brutes en réponse** : champ `role` exposé sans contrôle d'accès (src/routes/users.js:4-6, src/server.js:64-66).
 
 ### Domaine : `commandes` (métier, priorité cœur)
 
