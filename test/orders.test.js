@@ -576,3 +576,27 @@ test("GET /orders?sort=client_asc&customerName=Manoa retourne uniquement les com
   const ids = result.orders.map((o) => o.id);
   assert.deepEqual(ids, [103, 104], "combinaison client_asc + customerName=Manoa doit retourner uniquement 103 et 104");
 });
+
+// SHIAAAAAAAAAAAAAAAAAAAAAAAA-436 \u2014 tri par statut (status_asc / status_desc)
+// Donn\u00E9es : 101\u2192"paid", 102\u2192"cancelled", 103\u2192"paid", 104\u2192"cancelled" ; "cancelled" < "paid" alphab\u00E9tiquement
+
+test("GET /orders?sort=status_asc retourne les commandes en ordre alphab\u00E9tique croissant de status", async () => {
+  const result = await get("/orders?sort=status_asc");
+  const ids = result.orders.map((o) => o.id);
+  // cancelled (102, 104) avant paid (101, 103)
+  assert.deepEqual(ids, [102, 104, 101, 103], "status_asc doit retourner cancelled avant paid");
+});
+
+test("GET /orders?sort=status_desc retourne les commandes en ordre alphab\u00E9tique d\u00E9croissant de status", async () => {
+  const result = await get("/orders?sort=status_desc");
+  const ids = result.orders.map((o) => o.id);
+  // paid (101, 103) avant cancelled (102, 104)
+  assert.deepEqual(ids, [101, 103, 102, 104], "status_desc doit retourner paid avant cancelled");
+});
+
+test("GET /orders/export.csv?sort=status_asc retourne les lignes CSV dans l'ordre status_asc (cancelled avant paid)", async () => {
+  const { body } = await getCsvResponse("/orders/export.csv?sort=status_asc");
+  const lines = body.replace(/^\uFEFF/, "").split("\r\n").filter((l) => l.length > 0);
+  const ids = lines.slice(1).map((l) => Number(l.split(";")[0]));
+  assert.deepEqual(ids, [102, 104, 101, 103], "le CSV tri\u00E9 par status_asc doit avoir cancelled (102, 104) avant paid (101, 103)");
+});
