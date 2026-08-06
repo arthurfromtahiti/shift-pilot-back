@@ -153,7 +153,7 @@ shift-pilot-back/
 | Export | Fichier | Usage |
 |--------|---------|-------|
 | `listUsers()` | users.js:9-11 | Exposé via GET /users. Importé : server.js:4. |
-| `getUserById(id)` | users.js:13-15 | Importé : server.js:4. Appelé par GET /users/:id (server.js:70) et par `getFilteredOrders` (server.js:43) pour enrichir chaque commande avec clientName et clientEmail (CLA-187, SHIAAAAAAAAAAAAAAAAAAAAAAAA-240). Aussi utilisé pour lookup dans GET /orders/:id/history (server.js:78) — SHIAAAAAAAAAAAAAAAAAAAAAAAA-320. |
+| `getUserById(id)` | users.js:13-15 | Importé : server.js:4. Appelé par GET /users/:id (server.js:70) et par `getFilteredOrders` (server.js:43) pour enrichir chaque commande avec clientName et clientEmail (CLA-187, SHIAAAAAAAAAAAAAAAAAAAAAAAA-240). |
 | `isAdmin(user)` | users.js:17-19 | Exporté ligne 21. **Jamais importé.** |
 | `listOrders()` | orders.js:14-16 | Utilisé via GET /orders sans filtre. Retourne les commandes triées par id. Importé : server.js:6. |
 | `getOrdersByUser(id)` | orders.js:18-20 | Utilisé par GET /orders?userId=. Importé : server.js:6. |
