@@ -546,3 +546,33 @@ test("GET /orders/export.csv chaque ligne contient les bons champs pour chaque c
   assert.equal(devise, "XPF");
   assert.equal(statut, "paid");
 });
+
+// SHIAAAAAAAAAAAAAAAAAAAAAAAA-410 \u2014 tri par nom de client (client_asc / client_desc)
+// Donn\u00E9es : 101\u2192Teiki, 102\u2192Teiki, 103\u2192Manoa, 104\u2192Manoa ; Manoa < Teiki alphab\u00E9tiquement
+
+test("GET /orders?sort=client_asc retourne les commandes en ordre alphab\u00E9tique croissant de clientName", async () => {
+  const result = await get("/orders?sort=client_asc");
+  const ids = result.orders.map((o) => o.id);
+  // Manoa (103, 104) avant Teiki (101, 102)
+  assert.deepEqual(ids, [103, 104, 101, 102], "client_asc doit retourner Manoa avant Teiki");
+});
+
+test("GET /orders?sort=client_desc retourne les commandes en ordre alphab\u00E9tique d\u00E9croissant de clientName", async () => {
+  const result = await get("/orders?sort=client_desc");
+  const ids = result.orders.map((o) => o.id);
+  // Teiki (101, 102) avant Manoa (103, 104)
+  assert.deepEqual(ids, [101, 102, 103, 104], "client_desc doit retourner Teiki avant Manoa");
+});
+
+test("GET /orders/export.csv?sort=client_asc retourne les lignes CSV dans l'ordre client_asc (id103 avant id101)", async () => {
+  const { body } = await getCsvResponse("/orders/export.csv?sort=client_asc");
+  const lines = body.replace(/^\uFEFF/, "").split("\r\n").filter((l) => l.length > 0);
+  const ids = lines.slice(1).map((l) => Number(l.split(";")[0]));
+  assert.deepEqual(ids, [103, 104, 101, 102], "le CSV tri\u00E9 par client_asc doit avoir Manoa (103, 104) avant Teiki (101, 102)");
+});
+
+test("GET /orders?sort=client_asc&customerName=Manoa retourne uniquement les commandes Manoa tri\u00E9es", async () => {
+  const result = await get("/orders?sort=client_asc&customerName=Manoa");
+  const ids = result.orders.map((o) => o.id);
+  assert.deepEqual(ids, [103, 104], "combinaison client_asc + customerName=Manoa doit retourner uniquement 103 et 104");
+});
