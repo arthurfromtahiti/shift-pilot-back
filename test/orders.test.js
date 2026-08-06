@@ -369,9 +369,9 @@ test("GET /orders retourne un objet paginé avec les champs orders et pagination
   assert.ok(typeof result.pagination.totalPages === "number", "pagination.totalPages doit être un nombre");
 });
 
-test("GET /orders sans page/limit retourne page=1, limit=20, total=4, totalPages=1", async () => {
+test("GET /orders sans page/limit retourne page=1, limit=50, total=4, totalPages=1", async () => {
   const result = await get("/orders");
-  assert.deepEqual(result.pagination, { total: 4, page: 1, limit: 20, totalPages: 1 });
+  assert.deepEqual(result.pagination, { total: 4, page: 1, limit: 50, totalPages: 1 });
 });
 
 test("GET /orders?page=2&limit=2 retourne les éléments 3 et 4 avec la bonne pagination", async () => {
@@ -412,15 +412,15 @@ test("GET /orders?page=abc clamp à page=1", async () => {
   assert.equal(result.pagination.page, 1, "page non entière doit être clampée à 1");
 });
 
-test("GET /orders?limit=0 clamp à limit=1", async () => {
-  const result = await get("/orders?limit=0");
-  assert.equal(result.pagination.limit, 1, "limit=0 doit être clampé à 1");
-  assert.equal(result.pagination.total, 4);
+test("GET /orders?limit=0 retourne 400", async () => {
+  const { statusCode, body } = await getCsvResponse("/orders?limit=0");
+  assert.equal(statusCode, 400, "limit=0 doit retourner 400");
+  assert.deepEqual(JSON.parse(body), { error: "limit must be a positive integer" });
 });
 
-test("GET /orders?limit=200 clamp à limit=100", async () => {
+test("GET /orders?limit=200 retourne limit=200 (non clampé)", async () => {
   const result = await get("/orders?limit=200");
-  assert.equal(result.pagination.limit, 100, "limit > 100 doit être clampé à 100");
+  assert.equal(result.pagination.limit, 200, "limit=200 doit être accepté tel quel");
 });
 
 test("GET /orders?status=paid&page=1&limit=1 : filtres + pagination combinés", async () => {
@@ -599,4 +599,53 @@ test("GET /orders/export.csv?sort=status_asc retourne les lignes CSV dans l'ordr
   const lines = body.replace(/^\uFEFF/, "").split("\r\n").filter((l) => l.length > 0);
   const ids = lines.slice(1).map((l) => Number(l.split(";")[0]));
   assert.deepEqual(ids, [102, 104, 101, 103], "le CSV tri\u00E9 par status_asc doit avoir cancelled (102, 104) avant paid (101, 103)");
+});
+
+// SHIAAAAAAAAAAAAAAAAAAAAAAAA-441 \u2014 param\u00E8tre limit sur GET /orders et /orders/export.csv
+
+test("GET /orders?limit=abc retourne 400", async () => {
+  const { statusCode, body } = await getCsvResponse("/orders?limit=abc");
+  assert.equal(statusCode, 400, "limit non num\u00E9rique doit retourner 400");
+  assert.deepEqual(JSON.parse(body), { error: "limit must be a positive integer" });
+});
+
+test("GET /orders?limit=-1 retourne 400", async () => {
+  const { statusCode, body } = await getCsvResponse("/orders?limit=-1");
+  assert.equal(statusCode, 400, "limit n\u00E9gatif doit retourner 400");
+  assert.deepEqual(JSON.parse(body), { error: "limit must be a positive integer" });
+});
+
+test("GET /orders?limit=300 clampe \u00E0 limit=200", async () => {
+  const result = await get("/orders?limit=300");
+  assert.equal(result.pagination.limit, 200, "limit > 200 doit \u00EAtre clamp\u00E9 \u00E0 200");
+});
+
+test("GET /orders/export.csv?limit=2 retourne uniquement 2 lignes de donn\u00E9es", async () => {
+  const { body } = await getCsvResponse("/orders/export.csv?limit=2");
+  const lines = body.replace(/^\uFEFF/, "").split("\r\n").filter((l) => l.length > 0);
+  assert.equal(lines.length - 1, 2, "limit=2 doit retourner exactement 2 lignes de donn\u00E9es");
+});
+
+test("GET /orders/export.csv?limit=0 retourne 400", async () => {
+  const { statusCode, body } = await getCsvResponse("/orders/export.csv?limit=0");
+  assert.equal(statusCode, 400, "limit=0 doit retourner 400");
+  assert.deepEqual(JSON.parse(body), { error: "limit must be a positive integer" });
+});
+
+test("GET /orders/export.csv?limit=abc retourne 400", async () => {
+  const { statusCode, body } = await getCsvResponse("/orders/export.csv?limit=abc");
+  assert.equal(statusCode, 400, "limit non num\u00E9rique doit retourner 400");
+  assert.deepEqual(JSON.parse(body), { error: "limit must be a positive integer" });
+});
+
+test("GET /orders/export.csv?limit=-5 retourne 400", async () => {
+  const { statusCode, body } = await getCsvResponse("/orders/export.csv?limit=-5");
+  assert.equal(statusCode, 400, "limit n\u00E9gatif doit retourner 400");
+  assert.deepEqual(JSON.parse(body), { error: "limit must be a positive integer" });
+});
+
+test("GET /orders/export.csv?limit=300 clampe \u00E0 200 (retourne les 4 commandes disponibles)", async () => {
+  const { body } = await getCsvResponse("/orders/export.csv?limit=300");
+  const lines = body.replace(/^\uFEFF/, "").split("\r\n").filter((l) => l.length > 0);
+  assert.equal(lines.length - 1, 4, "limit=300 clamp\u00E9 \u00E0 200 retourne toutes les commandes (4 en base)");
 });
