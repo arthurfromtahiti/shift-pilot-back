@@ -250,6 +250,12 @@ test("GET /orders?to=not-a-date retourne toutes les commandes sans erreur", asyn
   assert.equal(result.orders.length, 4, "un to invalide doit être ignoré silencieusement");
 });
 
+// SHIAAAAAAAAAAAAAAAAAAAAAAAA-395 — userId vide ne doit pas ignorer le filtre
+test("GET /orders?userId= (valeur vide) retourne 200 et liste vide", async () => {
+  const result = await get("/orders?userId=");
+  assert.deepEqual(result.orders, [], "userId= vide ne doit pas retomber sur listOrders() — doit retourner []");
+});
+
 // CLA-226 — combinaison avec filtre existant
 test("GET /orders?userId=3&sort=date_desc retourne les commandes de l'utilisateur 3 triées décroissant", async () => {
   const result = await get("/orders?userId=3&sort=date_desc");

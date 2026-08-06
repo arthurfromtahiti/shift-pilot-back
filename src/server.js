@@ -24,7 +24,7 @@ function getFilteredOrders(url) {
   const statusLower = statusParam !== null ? statusParam.toLowerCase() : null;
   const normalizedStatus = statusLower === "canceled" ? "cancelled" : statusLower;
 
-  let result = userIdParam ? getOrdersByUser(Number(userIdParam)) : listOrders();
+  let result = userIdParam !== null ? getOrdersByUser(Number(userIdParam)) : listOrders();
   // explicit status wins over active-only: the two filters are semantically contradictory
   if (activeOnly && normalizedStatus === null) result = filterActiveOrders(result);
   if (normalizedStatus !== null) result = filterByStatus(result, normalizedStatus);
