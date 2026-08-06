@@ -74,8 +74,8 @@ shift-pilot-back/
 | `filterByStatus(orderList, status)` | Function export | 26-28 | Filtre par valeur de statut exacte (`order.status === status`). |
 | `getOrderById(id)` | Function export | 30-32 | Lookup par ID via `find()`. Importée dans server.js:6. Appelée par GET /orders/:id (server.js:86) et par GET /orders/:id/history (server.js:78) pour obtenir la commande (SHIAAAAAAAAAAAAAAAAAAAAAAAA-349, SHIAAAAAAAAAAAAAAAAAAAAAAAA-320). |
 | `normalize(s)` | Function (interne) | 34-36 | Normalise une chaîne : suppression diacritiques (NFD), conversion minuscules. Utile pour recherche insensible à la casse. |
-| `filterByCustomerName(orderList, customerName)` | Function export | 38-43 | Filtre les commandes par nom de client (substring, insensible à la casse). Exclut les commandes avec `clientName=null`. Chaque objet dans orderList doit porter `clientName` (enrichi par server.js:42-45). SHIAAAAAAAAAAAAAAAAAAAAAAAA-7. |
-| `DEFAULT_CURRENCY` | Constant export | 5 | Devise par défaut `"XPF"`. Utilisée lors de l'enrichissement pour ajouter le champ `currency` à chaque commande (server.js:44, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235). |
+| `filterByCustomerName(orderList, customerName)` | Function export | 38-43 | Filtre les commandes par nom de client (substring, insensible à la casse). Exclut les commandes avec `clientName=null`. Chaque objet dans orderList doit porter `clientName` (enrichi par server.js:43-45). SHIAAAAAAAAAAAAAAAAAAAAAAAA-7. |
+| `DEFAULT_CURRENCY` | Constant export | 5 | Devise par défaut `"XPF"`. Utilisée lors de l'enrichissement pour ajouter le champ `currency` à chaque commande (server.js:45, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235). |
 | Route HTTP | GET /orders/:id/history | server.js:75-81 | Retourne historique des statuts d'une commande. Lookup par ID via `getOrderById()` ; retourne 404 si absent. Réponse : `{ orderId, history: [ { status, at }, ... ] }` (SHIAAAAAAAAAAAAAAAAAAAAAAAA-320). |
 | Route HTTP | GET /orders/:id | server.js:83-95 | Retourne le détail d'une commande enrichie (clientName, clientEmail, currency). Lookup par ID via `getOrderById()` ; retourne 404 si absent. Enrichissement identique à GET /orders. (SHIAAAAAAAAAAAAAAAAAAAAAAAA-349) |
 | Route HTTP | GET /orders/export.csv | server.js:97-113 | Export CSV sans pagination. Content-Type `text/csv; charset=utf-8`, Content-Disposition avec date UTC. En-tête `id;date;clientName;clientEmail;montant;devise;statut`. Mêmes filtres que GET /orders via `getFilteredOrders()` sans page/limit. (SHIAAAAAAAAAAAAAAAAAAAAAAAA-310) |
@@ -89,14 +89,17 @@ shift-pilot-back/
 4. Si activeOnly vrai ET status null → filterActiveOrders(result)
 5. Si status fourni → filterByStatus(result, status)
 6. Si from/to fournis (format YYYY-MM-DD valide) → filtre par plage de dates sur createdAt (CLA-186)
-7. Si sort fourni → trier :
+7. Si sort fourni → trier (premièrement, tri par date/montant avant enrichissement) :
    - sort=date_asc → tri croissant par createdAt (CLA-186)
    - sort=date_desc → tri décroissant par createdAt (CLA-186)
    - sort=amount_asc → tri croissant par total (SHIAAAAAAAAAAAAAAAAAAAAAAAA-235)
    - sort=amount_desc → tri décroissant par total (SHIAAAAAAAAAAAAAAAAAAAAAAAA-235)
    - autre → pas de tri (valeurs ignorées silencieusement)
-8. Enrichir chaque commande avec clientName, clientEmail, et currency via getUserById() + DEFAULT_CURRENCY (server.js:42-45, CLA-187, SHIAAAAAAAAAAAAAAAAAAAAAAAA-240, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235)
-9. Si customerName fourni → filterByCustomerName(enriched, customerName) (server.js:47, SHIAAAAAAAAAAAAAAAAAAAAAAAA-7)
+8. Enrichir chaque commande avec clientName, clientEmail, et currency via getUserById() + DEFAULT_CURRENCY (server.js:43-46, CLA-187, SHIAAAAAAAAAAAAAAAAAAAAAAAA-240, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235)
+9. Si customerName fourni → filterByCustomerName(enriched, customerName) (server.js:48, SHIAAAAAAAAAAAAAAAAAAAAAAAA-7)
+9b. Si sort fourni → trier (deuxièmement, tri par client après enrichissement) :
+   - sort=client_asc → tri croissant par clientName (ordre alphabétique, localeCompare), traite clientName=null comme chaîne vide (SHIAAAAAAAAAAAAAAAAAAAAAAAA-406)
+   - sort=client_desc → tri décroissant par clientName (ordre alphabétique inverse, localeCompare), traite clientName=null comme chaîne vide (SHIAAAAAAAAAAAAAAAAAAAAAAAA-406)
    — GET /orders/export.csv s'arrête ici (retourne getFilteredOrders(url) complet, sans pagination)
 10. Pagination : lire params page et limit, parser avec clampage silencieux (page défaut 1, min 1 ; limit défaut 20, min 1, max 100) (server.js:118-123, SHIAAAAAAAAAAAAAAAAAAAAAAAA-249, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235)
 11. Calculer total (nb items enrichis), totalPages (≥1), découper slice par (page-1)*limit (server.js:125-127, SHIAAAAAAAAAAAAAAAAAAAAAAAA-249, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235)
@@ -151,7 +154,7 @@ shift-pilot-back/
 | GET | `/orders/:id/history` | server.js:75-81 | commandes | Retourne historique des statuts d'une commande (200 + `{ orderId, history: [ { status, at }, ... ] }`) ou 404 si la commande n'existe pas (SHIAAAAAAAAAAAAAAAAAAAAAAAA-320). |
 | GET | `/orders/:id` | server.js:83-95 | commandes | Retourne détail d'une commande enrichie (clientName, clientEmail, currency). Lookup par ID ; retourne 404 si absent (SHIAAAAAAAAAAAAAAAAAAAAAAAA-349). |
 | GET | `/orders/export.csv` | server.js:97-113 | commandes | Export CSV de toutes les commandes filtrées (sans pagination). Délimiteur `;`, filename commandes-YYYY-MM-DD.csv. Mêmes filtres que GET /orders sans page/limit. (SHIAAAAAAAAAAAAAAAAAAAAAAAA-310) |
-| GET | `/orders` | server.js:115-130 | commandes | Retourne commandes filtrées et enrichies avec clientName, clientEmail, currency (userId, active, status, from, to, sort, customerName, page, limit) ; réponse structurée { orders: [...], pagination: { total, page, limit, totalPages } }. Sort support date_asc, date_desc, amount_asc, amount_desc (SHIAAAAAAAAAAAAAAAAAAAAAAAA-235). |
+| GET | `/orders` | server.js:115-130 | commandes | Retourne commandes filtrées et enrichies avec clientName, clientEmail, currency (userId, active, status, from, to, sort, customerName, page, limit) ; réponse structurée { orders: [...], pagination: { total, page, limit, totalPages } }. Sort support date_asc, date_desc, amount_asc, amount_desc, client_asc, client_desc (SHIAAAAAAAAAAAAAAAAAAAAAAAA-235, SHIAAAAAAAAAAAAAAAAAAAAAAAA-406). |
 | (any) | (autre) | server.js:132 | — | 404 + `{error: "Not found"}` |
 
 ### Exports du système (pour test/import)
@@ -191,7 +194,7 @@ shift-pilot-back/
 
 **Criticité** : moyenne. Évolution fonctionnelle principale du filtre commandes.
 
-**État actuel** : Bug orthographique corrigé (CLA-195). `filterActiveOrders()` exclut correctement les `"cancelled"`. `filterByStatus()` ajoutée (CLA-195). Champ `createdAt` ISO 8601 ajouté sur chaque commande (CLA-225). Tri et filtre par date implémentés dans server.js (CLA-226). `getOrderById` exportée et appelée par GET /orders/:id/history (server.js:78, SHIAAAAAAAAAAAAAAAAAAAAAAAA-320).
+**État actuel** : Bug orthographique corrigé (CLA-195). `filterActiveOrders()` exclut correctement les `"cancelled"`. `filterByStatus()` ajoutée (CLA-195). Champ `createdAt` ISO 8601 ajouté sur chaque commande (CLA-225). Tri et filtre par date implémentés dans server.js (CLA-226). `getOrderById` exportée et appelée par GET /orders/:id/history (server.js:78, SHIAAAAAAAAAAAAAAAAAAAAAAAA-320). Tri par nom de client (client_asc, client_desc) appliqué après enrichissement pour bénéficier de la résolution clientName (SHIAAAAAAAAAAAAAAAAAAAAAAAA-406).
 
 **Changements attendus**
 - Ajouter un filtre supplémentaire → nouvelle fonction + ajout dans module.exports (ligne 32) + branchement dans server.js
@@ -212,7 +215,7 @@ Aucune. Tous les fichiers source ont été lus intégralement.
 
 ## Preuves
 
-**Architecture générale** : src/server.js:1-142 (lu intégralement, 142 lignes après ajout GET /orders/:id et GET /orders/export.csv)
+**Architecture générale** : src/server.js:1-147 (lu intégralement, 147 lignes après ajout GET /orders/:id, GET /orders/export.csv, et tri client_asc/client_desc, SHIAAAAAAAAAAAAAAAAAAAAAAAA-406)
 
 **Domaine utilisateurs** : src/routes/users.js:1-21 (lu intégralement, 21 lignes)
 
@@ -220,7 +223,7 @@ Aucune. Tous les fichiers source ont été lus intégralement.
 
 **Package** : package.json (dépendance lodash ^4.18.1, engines node>=18)
 
-**Tests** : test/orders.test.js (tests d'acceptation : clientName, total XPF, filtres, tri et filtre par date)
+**Tests** : test/orders.test.js (tests d'acceptation : clientName, total XPF, filtres, tri et filtre par date, tri client_asc/client_desc pour JSON et CSV, SHIAAAAAAAAAAAAAAAAAAAAAAAA-410)
 
 **Tests** : test/orders-history.test.js:1-105 (lu intégralement, 104 lignes — tests d'acceptation : GET /orders/:id/history, 404, statusHistory sur chaque commande, SHIAAAAAAAAAAAAAAAAAAAAAAAA-320)
 
