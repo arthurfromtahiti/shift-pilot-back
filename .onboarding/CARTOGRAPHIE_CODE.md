@@ -16,6 +16,7 @@ shift-pilot-back/
 ├── test/
 │   ├── orders.test.js    [tests d'acceptation — commandes]
 │   ├── orders-history.test.js [tests d'acceptation — historique statuts (SHIAAAAAAAAAAAAAAAAAAAAAAAA-320)]
+│   ├── orders-get-by-id.test.js [tests d'acceptation — lecture unitaire commande (SHIAAAAAAAAAAAAAAAAAAAAAAAA-352)]
 │   ├── lint.test.js      [tests d'acceptation — linting]
 │   ├── orders-search.test.js [tests d'acceptation — recherche commandes]
 │   └── users.test.js     [tests d'acceptation — utilisateurs]
@@ -23,7 +24,7 @@ shift-pilot-back/
 ├── README.md             [déclaration pilote SHIFT]
 ```
 
-**3 fichiers source, 5 fichiers de test, 1 dépendance externe** : `lodash` (utilisée dans `orders.js:3` via `_.sortBy`).
+**3 fichiers source, 6 fichiers de test, 1 dépendance externe** : `lodash` (utilisée dans `orders.js:3` via `_.sortBy`).
 
 ## Domaines et fichiers
 
@@ -222,3 +223,5 @@ Aucune. Tous les fichiers source ont été lus intégralement.
 **Tests** : test/orders.test.js (tests d'acceptation : clientName, total XPF, filtres, tri et filtre par date)
 
 **Tests** : test/orders-history.test.js:1-105 (lu intégralement, 104 lignes — tests d'acceptation : GET /orders/:id/history, 404, statusHistory sur chaque commande, SHIAAAAAAAAAAAAAAAAAAAAAAAA-320)
+
+**Tests** : test/orders-get-by-id.test.js:1-76 (lu intégralement, 76 lignes — tests d'acceptation : GET /orders/:id, 404, objet enrichi clientName/clientEmail/currency, SHIAAAAAAAAAAAAAAAAAAAAAAAA-352)
