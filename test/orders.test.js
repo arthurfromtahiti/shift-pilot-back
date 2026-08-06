@@ -402,3 +402,94 @@ test("totalPages vaut au moins 1 même quand total=0", async () => {
   assert.equal(result.pagination.total, 0);
   assert.equal(result.pagination.totalPages, 1, "totalPages minimum est 1 même si total=0");
 });
+
+// SHIAAAAAAAAAAAAAAAAAAAAAAAA-310 — GET /orders/export.csv
+
+// Helper: make a GET request and return raw response (status, headers, body string)
+function getCsvResponse(path) {
+  return new Promise((resolve, reject) => {
+    server.listen(0, () => {
+      const port = server.address().port;
+      http.get(`http://localhost:${port}${path}`, (res) => {
+        const chunks = [];
+        res.on("data", (chunk) => chunks.push(chunk));
+        res.on("end", () => {
+          server.close(() => resolve({
+            statusCode: res.statusCode,
+            headers: res.headers,
+            body: Buffer.concat(chunks).toString("utf-8"),
+          }));
+        });
+      }).on("error", (err) => {
+        server.close(() => reject(err));
+      });
+    });
+  });
+}
+
+test("GET /orders/export.csv sans filtre retourne BOM + en-tête + 4 lignes de données", async () => {
+  const { body } = await getCsvResponse("/orders/export.csv");
+  // BOM présent en premier caractère
+  assert.equal(body.charCodeAt(0), 0xFEFF, "le fichier doit commencer par le BOM \\uFEFF");
+  const lines = body.replace(/^\uFEFF/, "").split("\r\n").filter((l) => l.length > 0);
+  assert.equal(lines[0], "id;date;clientName;clientEmail;montant;devise;statut", "en-tête CSV incorrect");
+  assert.equal(lines.length - 1, 4, "4 lignes de données attendues (toutes les commandes)");
+});
+
+test("GET /orders/export.csv retourne Content-Type text/csv et Content-Disposition avec la date", async () => {
+  const { statusCode, headers } = await getCsvResponse("/orders/export.csv");
+  assert.equal(statusCode, 200, "le statut HTTP doit être 200");
+  assert.ok(
+    headers["content-type"] && headers["content-type"].startsWith("text/csv"),
+    "Content-Type doit commencer par text/csv",
+  );
+  assert.ok(
+    headers["content-disposition"] && headers["content-disposition"].startsWith("attachment; filename="),
+    "Content-Disposition doit être attachment avec filename",
+  );
+  // La date dans le nom de fichier doit être au format YYYY-MM-DD
+  const match = /filename="commandes-(\d{4}-\d{2}-\d{2})\.csv"/.exec(headers["content-disposition"]);
+  assert.ok(match, "le filename doit être commandes-YYYY-MM-DD.csv");
+});
+
+test("GET /orders/export.csv?status=paid retourne uniquement les commandes paid", async () => {
+  const { body } = await getCsvResponse("/orders/export.csv?status=paid");
+  const lines = body.replace(/^\uFEFF/, "").split("\r\n").filter((l) => l.length > 0);
+  // ligne 0 = en-tête, lignes suivantes = données
+  const dataLines = lines.slice(1);
+  assert.ok(dataLines.length > 0, "au moins une commande paid attendue");
+  for (const line of dataLines) {
+    const cols = line.split(";");
+    // statut est le 7ème champ (index 6)
+    assert.equal(cols[6], "paid", `chaque ligne doit avoir statut=paid, reçu : ${cols[6]}`);
+  }
+});
+
+test("GET /orders/export.csv?from=2024-01-01&to=2024-12-31 retourne les 4 commandes (toutes en 2024)", async () => {
+  const { body } = await getCsvResponse("/orders/export.csv?from=2024-01-01&to=2024-12-31");
+  const lines = body.replace(/^\uFEFF/, "").split("\r\n").filter((l) => l.length > 0);
+  assert.equal(lines.length - 1, 4, "toutes les commandes sont en 2024 : 4 lignes attendues");
+});
+
+test("GET /orders/export.csv?from=2024-02-01&to=2024-03-31 retourne uniquement id102 et id103", async () => {
+  const { body } = await getCsvResponse("/orders/export.csv?from=2024-02-01&to=2024-03-31");
+  const lines = body.replace(/^\uFEFF/, "").split("\r\n").filter((l) => l.length > 0);
+  const ids = lines.slice(1).map((l) => Number(l.split(";")[0])).sort((a, b) => a - b);
+  assert.deepEqual(ids, [102, 103], "la plage fév–mars doit inclure uniquement id102 et id103");
+});
+
+test("GET /orders/export.csv chaque ligne contient les bons champs pour chaque commande", async () => {
+  const { body } = await getCsvResponse("/orders/export.csv");
+  const lines = body.replace(/^\uFEFF/, "").split("\r\n").filter((l) => l.length > 0);
+  // Commande 101 : id=101, date=2024-01-10, clientName=Teiki, clientEmail=teiki@example.pf, montant=42, devise=XPF, statut=paid
+  const line101 = lines.slice(1).find((l) => l.startsWith("101;"));
+  assert.ok(line101, "commande 101 attendue dans l'export");
+  const [id, date, clientName, clientEmail, montant, devise, statut] = line101.split(";");
+  assert.equal(id, "101");
+  assert.equal(date, "2024-01-10");
+  assert.equal(clientName, "Teiki");
+  assert.equal(clientEmail, "teiki@example.pf");
+  assert.equal(montant, "42");
+  assert.equal(devise, "XPF");
+  assert.equal(statut, "paid");
+});
