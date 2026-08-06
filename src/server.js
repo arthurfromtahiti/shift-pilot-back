@@ -52,6 +52,8 @@ function getFilteredOrders(url) {
   else if (sortParam === "client_desc") enriched = [...enriched].sort((a, b) => (b.clientName ?? "").localeCompare(a.clientName ?? ""));
   else if (sortParam === "status_asc") enriched = [...enriched].sort((a, b) => (a.status ?? "").localeCompare(b.status ?? ""));
   else if (sortParam === "status_desc") enriched = [...enriched].sort((a, b) => (b.status ?? "").localeCompare(a.status ?? ""));
+  else if (sortParam === "id_asc") enriched = [...enriched].sort((a, b) => a.id - b.id);
+  else if (sortParam === "id_desc") enriched = [...enriched].sort((a, b) => b.id - a.id);
 
   return enriched;
 }

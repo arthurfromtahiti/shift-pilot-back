@@ -600,3 +600,32 @@ test("GET /orders/export.csv?sort=status_asc retourne les lignes CSV dans l'ordr
   const ids = lines.slice(1).map((l) => Number(l.split(";")[0]));
   assert.deepEqual(ids, [102, 104, 101, 103], "le CSV tri\u00E9 par status_asc doit avoir cancelled (102, 104) avant paid (101, 103)");
 });
+
+// SHIAAAAAAAAAAAAAAAAAAAAAAAA-443 \u2014 tri par id (id_asc / id_desc)
+// Donn\u00E9es : ids 101, 102, 103, 104 ; id_asc = ordre croissant num\u00E9rique, id_desc = d\u00E9croissant
+
+test("GET /orders?sort=id_asc retourne les commandes en ordre croissant d'id (comparaison num\u00E9rique)", async () => {
+  const result = await get("/orders?sort=id_asc");
+  const ids = result.orders.map((o) => o.id);
+  assert.deepEqual(ids, [101, 102, 103, 104], "id_asc doit retourner les ids dans l'ordre croissant");
+});
+
+test("GET /orders?sort=id_desc retourne les commandes en ordre d\u00E9croissant d'id (comparaison num\u00E9rique)", async () => {
+  const result = await get("/orders?sort=id_desc");
+  const ids = result.orders.map((o) => o.id);
+  assert.deepEqual(ids, [104, 103, 102, 101], "id_desc doit retourner les ids dans l'ordre d\u00E9croissant");
+});
+
+test("GET /orders/export.csv?sort=id_asc retourne les lignes CSV dans l'ordre id croissant", async () => {
+  const { body } = await getCsvResponse("/orders/export.csv?sort=id_asc");
+  const lines = body.replace(/^\uFEFF/, "").split("\r\n").filter((l) => l.length > 0);
+  const ids = lines.slice(1).map((l) => Number(l.split(";")[0]));
+  assert.deepEqual(ids, [101, 102, 103, 104], "le CSV tri\u00E9 par id_asc doit avoir les ids dans l'ordre croissant");
+});
+
+test("GET /orders/export.csv?sort=id_desc retourne les lignes CSV dans l'ordre id d\u00E9croissant", async () => {
+  const { body } = await getCsvResponse("/orders/export.csv?sort=id_desc");
+  const lines = body.replace(/^\uFEFF/, "").split("\r\n").filter((l) => l.length > 0);
+  const ids = lines.slice(1).map((l) => Number(l.split(";")[0]));
+  assert.deepEqual(ids, [104, 103, 102, 101], "le CSV tri\u00E9 par id_desc doit avoir les ids dans l'ordre d\u00E9croissant");
+});
