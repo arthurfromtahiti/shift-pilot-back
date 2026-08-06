@@ -66,6 +66,40 @@ test("GET /orders?status=unknown returns empty list, not an error", async () => 
   assert.deepEqual(result.orders, [], "unknown status must return empty array");
 });
 
+// SHIAAAAAAAAAAAAAAAAAAAAAAAA-380 — filtre status insensible à la casse
+test("GET /orders?status=PAID (majuscules) retourne les mêmes commandes que ?status=paid", async () => {
+  const upper = await get("/orders?status=PAID");
+  const lower = await get("/orders?status=paid");
+  assert.ok(upper.orders.length > 0, "PAID en majuscules doit retourner au moins une commande");
+  assert.deepEqual(
+    upper.orders.map((o) => o.id).sort(),
+    lower.orders.map((o) => o.id).sort(),
+    "?status=PAID doit retourner les mêmes commandes que ?status=paid",
+  );
+});
+
+test("GET /orders?status=Cancelled (casse mixte) retourne les mêmes commandes que ?status=cancelled", async () => {
+  const mixed = await get("/orders?status=Cancelled");
+  const lower = await get("/orders?status=cancelled");
+  assert.ok(mixed.orders.length > 0, "Cancelled en casse mixte doit retourner au moins une commande");
+  assert.deepEqual(
+    mixed.orders.map((o) => o.id).sort(),
+    lower.orders.map((o) => o.id).sort(),
+    "?status=Cancelled doit retourner les mêmes commandes que ?status=cancelled",
+  );
+});
+
+test("GET /orders?status=CANCELED (majuscules, alias US) retourne les mêmes commandes que ?status=cancelled", async () => {
+  const upper = await get("/orders?status=CANCELED");
+  const canonical = await get("/orders?status=cancelled");
+  assert.ok(upper.orders.length > 0, "CANCELED en majuscules doit retourner au moins une commande");
+  assert.deepEqual(
+    upper.orders.map((o) => o.id).sort(),
+    canonical.orders.map((o) => o.id).sort(),
+    "?status=CANCELED doit retourner les mêmes commandes que ?status=cancelled",
+  );
+});
+
 // CLA-114 — Bug 1: American spelling "canceled" must match British "cancelled" in data
 test("GET /orders?status=canceled (one l) returns same orders as ?status=cancelled", async () => {
   const onEl = await get("/orders?status=canceled");

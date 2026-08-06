@@ -20,8 +20,9 @@ function getFilteredOrders(url) {
   const toParam = url.searchParams.get("to");
   const customerNameParam = url.searchParams.get("customerName");
 
-  // "canceled" (American, 1 l) is an alias for the canonical "cancelled" stored in data
-  const normalizedStatus = statusParam === "canceled" ? "cancelled" : statusParam;
+  // Normalize case first, then resolve "canceled" (American) → "cancelled" (canonical in data)
+  const statusLower = statusParam !== null ? statusParam.toLowerCase() : null;
+  const normalizedStatus = statusLower === "canceled" ? "cancelled" : statusLower;
 
   let result = userIdParam ? getOrdersByUser(Number(userIdParam)) : listOrders();
   // explicit status wins over active-only: the two filters are semantically contradictory
