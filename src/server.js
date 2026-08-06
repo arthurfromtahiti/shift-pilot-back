@@ -10,6 +10,54 @@ function sendJson(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
+// Steps 1–9 of the orders filter pipeline (shared by GET /orders and GET /orders/export.csv)
+function getFilteredOrders(url) {
+  const userIdParam = url.searchParams.get("userId");
+  const activeOnly = url.searchParams.get("active") === "true";
+  const statusParam = url.searchParams.get("status");
+  const sortParam = url.searchParams.get("sort");
+  const fromParam = url.searchParams.get("from");
+  const toParam = url.searchParams.get("to");
+  const customerNameParam = url.searchParams.get("customerName");
+
+  // "canceled" (American, 1 l) is an alias for the canonical "cancelled" stored in data
+  const normalizedStatus = statusParam === "canceled" ? "cancelled" : statusParam;
+
+  let result = userIdParam ? getOrdersByUser(Number(userIdParam)) : listOrders();
+  // explicit status wins over active-only: the two filters are semantically contradictory
+  if (activeOnly && normalizedStatus === null) result = filterActiveOrders(result);
+  if (normalizedStatus !== null) result = filterByStatus(result, normalizedStatus);
+
+  // date range filter — YYYY-MM-DD compared against createdAt ISO string; invalid format silently ignored
+  const isValidDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s);
+  if (fromParam && isValidDate(fromParam)) result = result.filter((o) => o.createdAt >= fromParam + "T00:00:00Z");
+  if (toParam && isValidDate(toParam)) result = result.filter((o) => o.createdAt <= toParam + "T23:59:59Z");
+
+  // date/amount sort — unknown sort values are silently ignored, no mutation of source array
+  if (sortParam === "date_asc") result = [...result].sort((a, b) => a.createdAt < b.createdAt ? -1 : 1);
+  else if (sortParam === "date_desc") result = [...result].sort((a, b) => a.createdAt > b.createdAt ? -1 : 1);
+  else if (sortParam === "amount_asc") result = [...result].sort((a, b) => a.total - b.total);
+  else if (sortParam === "amount_desc") result = [...result].sort((a, b) => b.total - a.total);
+
+  let enriched = result.map((o) => {
+    const user = getUserById(o.userId);
+    return { ...o, clientName: user ? user.name : null, clientEmail: user ? user.email : null, currency: o.currency ?? DEFAULT_CURRENCY };
+  });
+
+  if (customerNameParam !== null) enriched = filterByCustomerName(enriched, customerNameParam);
+
+  return enriched;
+}
+
+// RFC 4180 escaping with ; as delimiter: quote fields containing ; " \r or \n
+function csvEscape(value) {
+  const str = value === null || value === undefined ? "" : String(value);
+  if (str.includes(";") || str.includes('"') || str.includes("\r") || str.includes("\n")) {
+    return '"' + str.replace(/"/g, '""') + '"';
+  }
+  return str;
+}
+
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
 
@@ -24,40 +72,26 @@ const server = http.createServer((req, res) => {
     return sendJson(res, 200, user);
   }
 
-  if (url.pathname === "/orders" && req.method === "GET") {
-    const userIdParam = url.searchParams.get("userId");
-    const activeOnly = url.searchParams.get("active") === "true";
-    const statusParam = url.searchParams.get("status");
-    const sortParam = url.searchParams.get("sort");
-    const fromParam = url.searchParams.get("from");
-    const toParam = url.searchParams.get("to");
-    const customerNameParam = url.searchParams.get("customerName");
-
-    // "canceled" (American, 1 l) is an alias for the canonical "cancelled" stored in data
-    const normalizedStatus = statusParam === "canceled" ? "cancelled" : statusParam;
-
-    let result = userIdParam ? getOrdersByUser(Number(userIdParam)) : listOrders();
-    // explicit status wins over active-only: the two filters are semantically contradictory
-    if (activeOnly && normalizedStatus === null) result = filterActiveOrders(result);
-    if (normalizedStatus !== null) result = filterByStatus(result, normalizedStatus);
-
-    // date range filter — YYYY-MM-DD compared against createdAt ISO string; invalid format silently ignored
-    const isValidDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s);
-    if (fromParam && isValidDate(fromParam)) result = result.filter((o) => o.createdAt >= fromParam + "T00:00:00Z");
-    if (toParam && isValidDate(toParam)) result = result.filter((o) => o.createdAt <= toParam + "T23:59:59Z");
-
-    // date/amount sort — unknown sort values are silently ignored, no mutation of source array
-    if (sortParam === "date_asc") result = [...result].sort((a, b) => a.createdAt < b.createdAt ? -1 : 1);
-    else if (sortParam === "date_desc") result = [...result].sort((a, b) => a.createdAt > b.createdAt ? -1 : 1);
-    else if (sortParam === "amount_asc") result = [...result].sort((a, b) => a.total - b.total);
-    else if (sortParam === "amount_desc") result = [...result].sort((a, b) => b.total - a.total);
-
-    let enriched = result.map((o) => {
-      const user = getUserById(o.userId);
-      return { ...o, clientName: user ? user.name : null, clientEmail: user ? user.email : null, currency: o.currency ?? DEFAULT_CURRENCY };
+  if (url.pathname === "/orders/export.csv" && req.method === "GET") {
+    const enriched = getFilteredOrders(url);
+    const today = new Date().toISOString().slice(0, 10);
+    const header = "id;date;clientName;clientEmail;montant;devise;statut";
+    const rows = enriched.map((o) =>
+      [o.id, o.createdAt.slice(0, 10), o.clientName, o.clientEmail, o.total, o.currency, o.status]
+        .map(csvEscape)
+        .join(";")
+    );
+    const csv = "﻿" + [header, ...rows].join("\r\n");
+    res.writeHead(200, {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": `attachment; filename="commandes-${today}.csv"`,
     });
+    res.end(csv);
+    return;
+  }
 
-    if (customerNameParam !== null) enriched = filterByCustomerName(enriched, customerNameParam);
+  if (url.pathname === "/orders" && req.method === "GET") {
+    const enriched = getFilteredOrders(url);
 
     const pageParam = url.searchParams.get("page");
     const limitParam = url.searchParams.get("limit");
