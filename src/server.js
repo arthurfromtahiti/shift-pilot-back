@@ -80,6 +80,20 @@ const server = http.createServer((req, res) => {
     return sendJson(res, 200, { orderId: order.id, history: order.statusHistory });
   }
 
+  const orderByIdMatch = req.method === "GET" && /^\/orders\/(\d+)$/.exec(url.pathname);
+  if (orderByIdMatch) {
+    const id = parseInt(orderByIdMatch[1], 10);
+    const order = getOrderById(id);
+    if (order === null) return sendJson(res, 404, { error: "Not found" });
+    const user = getUserById(order.userId);
+    return sendJson(res, 200, {
+      ...order,
+      clientName: user ? user.name : null,
+      clientEmail: user ? user.email : null,
+      currency: order.currency ?? DEFAULT_CURRENCY,
+    });
+  }
+
   if (url.pathname === "/orders/export.csv" && req.method === "GET") {
     const enriched = getFilteredOrders(url);
     const today = new Date().toISOString().slice(0, 10);
