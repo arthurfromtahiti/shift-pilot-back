@@ -38,7 +38,7 @@ function normalize(s) {
 function filterByCustomerName(orderList, customerName) {
   const needle = normalize(customerName);
   return orderList.filter(
-    (o) => o.clientName !== null && normalize(o.clientName).includes(needle)
+    (o) => o.clientName != null && normalize(o.clientName).includes(needle)
   );
 }
 
