@@ -15,12 +15,15 @@ shift-pilot-back/
 │   │   └── orders.js     [domaine commandes]
 ├── test/
 │   ├── orders.test.js    [tests d'acceptation — commandes]
-│   └── orders-history.test.js [tests d'acceptation — historique statuts (SHIAAAAAAAAAAAAAAAAAAAAAAAA-320)]
+│   ├── orders-history.test.js [tests d'acceptation — historique statuts (SHIAAAAAAAAAAAAAAAAAAAAAAAA-320)]
+│   ├── lint.test.js      [tests d'acceptation — linting]
+│   ├── orders-search.test.js [tests d'acceptation — recherche commandes]
+│   └── users.test.js     [tests d'acceptation — utilisateurs]
 ├── package.json          [1 dépendance : lodash]
 ├── README.md             [déclaration pilote SHIFT]
 ```
 
-**3 fichiers source, 2 fichiers de test, 1 dépendance externe** : `lodash` (utilisée dans `orders.js:3` via `_.sortBy`).
+**3 fichiers source, 5 fichiers de test, 1 dépendance externe** : `lodash` (utilisée dans `orders.js:3` via `_.sortBy`).
 
 ## Domaines et fichiers
 
@@ -63,7 +66,7 @@ shift-pilot-back/
 
 | Élément | Type | Ligne(s) | Détail |
 |---------|------|----------|--------|
-| `orders` | Data (const array) | 7-12 | Tableau littéral, 4 objets `{id, userId, total, status, createdAt, statusHistory}`. `total` en XPF. Statut ∈ {`"paid"`, `"cancelled"`} (double l). `createdAt` ISO 8601 UTC (CLA-225). `statusHistory` tableau d'objets `{status, at}` — historique des transitions de statut (SHIAAAAAAAAAAAAAAAAAAAAAAAA-320). |
+| `orders` | Data (const array) | 7-12 | Tableau littéral, 4 objets `{id, userId, total, currency, status, createdAt, statusHistory}`. `total` en XPF. `currency: "XPF"` (valeur figée). Statut ∈ {`"paid"`, `"cancelled"`} (double l). `createdAt` ISO 8601 UTC (CLA-225). `statusHistory` tableau d'objets `{status, at}` — historique des transitions de statut (SHIAAAAAAAAAAAAAAAAAAAAAAAA-320). |
 | `listOrders()` | Function export | 14-16 | Retourne `orders` triés par id (via `_.sortBy`). |
 | `getOrdersByUser(userId)` | Function export | 18-20 | Filtre par `order.userId === userId`. Fonctionne correctement. |
 | `filterActiveOrders(orderList)` | Function export | 22-24 | Exclut les commandes `"cancelled"`. Bug orthographique corrigé en CLA-195. |
@@ -99,7 +102,6 @@ shift-pilot-back/
 ```
 
 **Points critiques**
-- **Import inutilisé** : `getOrderById` exportée dans orders.js:30, aucune route ne l'appelle.
 - **Validation d'entrée absente** : `userId=abc` → `NaN` silencieux, pas d'erreur 400.
 - **Ordre de filtrage** : le filtre `customerName` s'applique **après** enrichissement (`clientName`). C'est intentionnel : il filtre sur le nom résolu de l'utilisateur propriétaire.
 
@@ -185,7 +187,7 @@ shift-pilot-back/
 
 **Criticité** : moyenne. Évolution fonctionnelle principale du filtre commandes.
 
-**État actuel** : Bug orthographique corrigé (CLA-195). `filterActiveOrders()` exclut correctement les `"cancelled"`. `filterByStatus()` ajoutée (CLA-195). Champ `createdAt` ISO 8601 ajouté sur chaque commande (CLA-225). Tri et filtre par date implémentés dans server.js (CLA-226). `getOrderById` exportée mais non appelée par aucune route.
+**État actuel** : Bug orthographique corrigé (CLA-195). `filterActiveOrders()` exclut correctement les `"cancelled"`. `filterByStatus()` ajoutée (CLA-195). Champ `createdAt` ISO 8601 ajouté sur chaque commande (CLA-225). Tri et filtre par date implémentés dans server.js (CLA-226). `getOrderById` exportée et appelée par GET /orders/:id/history (server.js:78, SHIAAAAAAAAAAAAAAAAAAAAAAAA-320).
 
 **Changements attendus**
 - Ajouter un filtre supplémentaire → nouvelle fonction + ajout dans module.exports (ligne 32) + branchement dans server.js
