@@ -51,7 +51,7 @@ shift-pilot-back/
 
 **Points critiques**
 - **Export mort** : `isAdmin` exporté ligne 21 de users.js, jamais consommé — squelette d'autorisation déconnecté.
-- **Données brutes en réponse** : champ `role` exposé sans contrôle d'accès (src/routes/users.js:4-6, src/server.js:64-66).
+- **Données brutes en réponse** : champ `role` exposé sans contrôle d'accès (src/routes/users.js:4-6, src/server.js:69-71).
 
 ### Domaine : `commandes` (métier, priorité cœur)
 
@@ -101,9 +101,9 @@ shift-pilot-back/
    - sort=client_asc → tri croissant par clientName (ordre alphabétique, localeCompare), traite clientName=null comme chaîne vide (SHIAAAAAAAAAAAAAAAAAAAAAAAA-406)
    - sort=client_desc → tri décroissant par clientName (ordre alphabétique inverse, localeCompare), traite clientName=null comme chaîne vide (SHIAAAAAAAAAAAAAAAAAAAAAAAA-406)
    — GET /orders/export.csv s'arrête ici (retourne getFilteredOrders(url) complet, sans pagination)
-10. Pagination : lire params page et limit, parser avec clampage silencieux (page défaut 1, min 1 ; limit défaut 20, min 1, max 100) (server.js:118-123, SHIAAAAAAAAAAAAAAAAAAAAAAAA-249, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235)
-11. Calculer total (nb items enrichis), totalPages (≥1), découper slice par (page-1)*limit (server.js:125-127, SHIAAAAAAAAAAAAAAAAAAAAAAAA-249, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235)
-12. Retourner objet structuré { orders: [...], pagination: { total, page, limit, totalPages } } (server.js:129, SHIAAAAAAAAAAAAAAAAAAAAAAAA-249, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235)
+10. Pagination : lire params page et limit, parser avec clampage silencieux (page défaut 1, min 1 ; limit défaut 20, min 1, max 100) (server.js:123-128, SHIAAAAAAAAAAAAAAAAAAAAAAAA-249, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235)
+11. Calculer total (nb items enrichis), totalPages (≥1), découper slice par (page-1)*limit (server.js:130-132, SHIAAAAAAAAAAAAAAAAAAAAAAAA-249, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235)
+12. Retourner objet structuré { orders: [...], pagination: { total, page, limit, totalPages } } (server.js:134, SHIAAAAAAAAAAAAAAAAAAAAAAAA-249, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235)
 ```
 
 **Points critiques**
@@ -194,7 +194,7 @@ shift-pilot-back/
 
 **Criticité** : moyenne. Évolution fonctionnelle principale du filtre commandes.
 
-**État actuel** : Bug orthographique corrigé (CLA-195). `filterActiveOrders()` exclut correctement les `"cancelled"`. `filterByStatus()` ajoutée (CLA-195). Champ `createdAt` ISO 8601 ajouté sur chaque commande (CLA-225). Tri et filtre par date implémentés dans server.js (CLA-226). `getOrderById` exportée et appelée par GET /orders/:id/history (server.js:78, SHIAAAAAAAAAAAAAAAAAAAAAAAA-320). Tri par nom de client (client_asc, client_desc) appliqué après enrichissement pour bénéficier de la résolution clientName (SHIAAAAAAAAAAAAAAAAAAAAAAAA-406).
+**État actuel** : Bug orthographique corrigé (CLA-195). `filterActiveOrders()` exclut correctement les `"cancelled"`. `filterByStatus()` ajoutée (CLA-195). Champ `createdAt` ISO 8601 ajouté sur chaque commande (CLA-225). Tri et filtre par date implémentés dans server.js (CLA-226). `getOrderById` exportée et appelée par GET /orders/:id/history (server.js:83, SHIAAAAAAAAAAAAAAAAAAAAAAAA-320). Tri par nom de client (client_asc, client_desc) appliqué après enrichissement pour bénéficier de la résolution clientName (SHIAAAAAAAAAAAAAAAAAAAAAAAA-406).
 
 **Changements attendus**
 - Ajouter un filtre supplémentaire → nouvelle fonction + ajout dans module.exports (ligne 32) + branchement dans server.js
@@ -203,7 +203,7 @@ shift-pilot-back/
 
 **Criticité** : faible. Décision produit requise.
 
-**État actuel** : `getUserById` est **utilisée** dans GET /users/:id (server.js:70) et dans `getFilteredOrders` (server.js:43) pour enrichir avec clientName et clientEmail (CLA-187, SHIAAAAAAAAAAAAAAAAAAAAAAAA-240). `isAdmin` reste un export mort.
+**État actuel** : `getUserById` est **utilisée** dans GET /users/:id (server.js:75) et dans `getFilteredOrders` (server.js:43) pour enrichir avec clientName et clientEmail (CLA-187, SHIAAAAAAAAAAAAAAAAAAAAAAAA-240). `isAdmin` reste un export mort.
 
 **Options restantes**
 - (a) Câbler contrôle d'accès (utiliser `isAdmin`)
