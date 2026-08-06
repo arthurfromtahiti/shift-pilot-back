@@ -131,11 +131,11 @@ shift-pilot-back/
 | Routes GET /orders/export.csv | if-block | 97-113 | Export CSV sans pagination. Content-Type `text/csv; charset=utf-8`, Content-Disposition avec date UTC, en-tête `id;date;clientName;clientEmail;montant;devise;statut`. Appelle `getFilteredOrders()` sans page/limit. (SHIAAAAAAAAAAAAAAAAAAAAAAAA-310) |
 | Routes GET /orders | if-block | 115-130 | Branchement + pagination (étapes 10–12). Appelle `getFilteredOrders()`, applique page/limit avec clampage silencieux, retourne `{ orders, pagination }` (SHIAAAAAAAAAAAAAAAAAAAAAAAA-249). **C'est ici que la logique métier est composée.** |
 | Fallback 404 | if-block | 132 | Tout ce qui ne match pas → 404 + `{error: "Not found"}`. |
-| `require.main === module` | Conditional | 122-126 | Démarre le serveur uniquement si invoqué directement (pas si importé en test). |
-| `module.exports = server` | Export | 128 | Permet d'importer le serveur en test et de le décorer (ex. faire des requêtes HTTP). |
+| `require.main === module` | Conditional | 136-140 | Démarre le serveur uniquement si invoqué directement (pas si importé en test). |
+| `module.exports = server` | Export | 142 | Permet d'importer le serveur en test et de le décorer (ex. faire des requêtes HTTP). |
 
 **Points critiques**
-- **Multi-responsabilité** : parsing HTTP + routage + orchestration métier dans un seul fichier. Actuellement 128 lignes (logique d'enrichissement + pagination pour GET /orders + export CSV + historique statuts, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235, SHIAAAAAAAAAAAAAAAAAAAAAAAA-310, SHIAAAAAAAAAAAAAAAAAAAAAAAA-320). Debt dès la 6ème-7ème route ajoutée.
+- **Multi-responsabilité** : parsing HTTP + routage + orchestration métier dans un seul fichier. Actuellement 142 lignes (logique d'enrichissement + pagination pour GET /orders + export CSV + historique statuts, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235, SHIAAAAAAAAAAAAAAAAAAAAAAAA-310, SHIAAAAAAAAAAAAAAAAAAAAAAAA-320). Debt dès la 6ème-7ème route ajoutée.
 - **Aucun middleware transverse** : pas de try/catch global, pas de middleware d'erreur. Une exception non attrapée crasherait le processus sans réponse HTTP.
 - **Seul point de modification pour toute évolution fonctionnelle** : ajouter une route, un paramètre, un filtre passe obligatoirement par ce fichier.
 
@@ -167,7 +167,7 @@ shift-pilot-back/
 | `filterByCustomerName(orderList, customerName)` | orders.js:38-43 | Utilisé par GET /orders?customerName=. Filtre par nom de client (substring, insensible à la casse). Importé : server.js:6. SHIAAAAAAAAAAAAAAAAAAAAAAAA-7. |
 | `DEFAULT_CURRENCY` | orders.js:5 | Devise par défaut `"XPF"`. Importé : server.js:6. Utilisé pour enrichir chaque commande avec le champ `currency` (server.js:44, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235). |
 | `getOrderById(id)` | orders.js:30-32 | Importé : server.js:6. Appelé par GET /orders/:id (server.js:86) et GET /orders/:id/history (server.js:78) pour obtenir la commande (SHIAAAAAAAAAAAAAAAAAAAAAAAA-349, SHIAAAAAAAAAAAAAAAAAAAAAAAA-320). |
-| `server` (http.Server) | server.js:128 | Exporté pour import en test. |
+| `server` (http.Server) | server.js:142 | Exporté pour import en test. |
 
 ## Fichiers critiques (hotspots d'évolution)
 
