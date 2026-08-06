@@ -47,6 +47,10 @@ function getFilteredOrders(url) {
 
   if (customerNameParam !== null) enriched = filterByCustomerName(enriched, customerNameParam);
 
+  // client sort — applied after enrichment because clientName only exists after getUserById resolution
+  if (sortParam === "client_asc") enriched = [...enriched].sort((a, b) => (a.clientName ?? "").localeCompare(b.clientName ?? ""));
+  else if (sortParam === "client_desc") enriched = [...enriched].sort((a, b) => (b.clientName ?? "").localeCompare(a.clientName ?? ""));
+
   return enriched;
 }
 
