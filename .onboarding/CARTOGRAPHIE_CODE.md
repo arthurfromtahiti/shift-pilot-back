@@ -82,7 +82,7 @@ shift-pilot-back/
 | Route HTTP | GET /orders/export.csv | server.js:106-122 | Export CSV sans pagination. Content-Type `text/csv; charset=utf-8`, Content-Disposition avec date UTC. En-tête `id;date;clientName;clientEmail;montant;devise;statut`. Mêmes filtres que GET /orders via `getFilteredOrders()` sans page/limit. (SHIAAAAAAAAAAAAAAAAAAAAAAAA-310) |
 | Route HTTP | GET /orders | server.js:124-139 | `GET /orders` avec params optionnels `userId`, `active`, `status`, `sort` (date_asc, date_desc, amount_asc, amount_desc, client_asc, client_desc, status_asc, status_desc, total_asc, total_desc), `from`, `to`, `customerName`, `page`, `limit` → JSON 200 avec réponse structurée `{ orders: [...], pagination: { total, page, limit, totalPages } }`. Chaque commande inclut `clientName`, `clientEmail`, `currency` en plus des champs natifs (SHIAAAAAAAAAAAAAAAAAAAAAAAA-235, SHIAAAAAAAAAAAAAAAAAAAAA-461). |
 
-**Composition des filtres** — étapes 1–9 dans `getFilteredOrders(url)` (`src/server.js:14-55`), étapes 10–12 dans GET /orders (`src/server.js:120-135`)
+**Composition des filtres** — étapes 1–9 dans `getFilteredOrders(url)` (`src/server.js:14-59`), étapes 10–12 dans GET /orders (`src/server.js:124-139`)
 ```
 1. Si userId fourni → getOrdersByUser(userId)
 2. Sinon → listOrders()
