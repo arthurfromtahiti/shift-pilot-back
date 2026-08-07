@@ -80,10 +80,10 @@ shift-pilot-back/
 | `DEFAULT_CURRENCY` | Constant export | 5 | Devise par défaut `"XPF"`. Utilisée lors de l'enrichissement pour ajouter le champ `currency` à chaque commande (server.js:45, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235). |
 | Route HTTP | GET /orders/:id/history | server.js:80-86 | Retourne historique des statuts d'une commande. Lookup par ID via `getOrderById()` ; retourne 404 si absent. Réponse : `{ orderId, history: [ { status, at }, ... ] }` (SHIAAAAAAAAAAAAAAAAAAAAAAAA-320). |
 | Route HTTP | GET /orders/:id | server.js:88-100 | Retourne le détail d'une commande enrichie (clientName, clientEmail, currency). Lookup par ID via `getOrderById()` ; retourne 404 si absent. Enrichissement identique à GET /orders. (SHIAAAAAAAAAAAAAAAAAAAAAAAA-349) |
-| Route HTTP | GET /orders/export.csv | server.js:102-118 | Export CSV sans pagination. Content-Type `text/csv; charset=utf-8`, Content-Disposition avec date UTC. En-tête `id;date;clientName;clientEmail;montant;devise;statut`. Mêmes filtres que GET /orders via `getFilteredOrders()` sans page/limit. (SHIAAAAAAAAAAAAAAAAAAAAAAAA-310) |
-| Route HTTP | GET /orders | server.js:122-136 | `GET /orders` avec params optionnels `userId`, `active`, `status`, `sort` (date_asc, date_desc, amount_asc, amount_desc, client_asc, client_desc, id_asc, id_desc, total_asc, total_desc), `from`, `to`, `customerName`, `page`, `limit` → JSON 200 avec réponse structurée `{ orders: [...], pagination: { total, page, limit, totalPages } }`. Chaque commande inclut `clientName`, `clientEmail`, `currency` en plus des champs natifs (SHIAAAAAAAAAAAAAAAAAAAAAAAA-235, SHIAAAAAAAAAAAAAAAAAAAAAAAA-440, SHIAAAAAAAAAAAAAAAAAAAAAAAA-461). |
+| Route HTTP | GET /orders/export.csv | server.js:108-124 | Export CSV sans pagination. Content-Type `text/csv; charset=utf-8`, Content-Disposition avec date UTC. En-tête `id;date;clientName;clientEmail;montant;devise;statut`. Mêmes filtres que GET /orders via `getFilteredOrders()` sans page/limit. (SHIAAAAAAAAAAAAAAAAAAAAAAAA-310) |
+| Route HTTP | GET /orders | server.js:126-141 | `GET /orders` avec params optionnels `userId`, `active`, `status`, `sort` (date_asc, date_desc, amount_asc, amount_desc, client_asc, client_desc, id_asc, id_desc, total_asc, total_desc), `from`, `to`, `customerName`, `page`, `limit` → JSON 200 avec réponse structurée `{ orders: [...], pagination: { total, page, limit, totalPages } }`. Chaque commande inclut `clientName`, `clientEmail`, `currency` en plus des champs natifs (SHIAAAAAAAAAAAAAAAAAAAAAAAA-235, SHIAAAAAAAAAAAAAAAAAAAAAAAA-440, SHIAAAAAAAAAAAAAAAAAAAAAAAA-461). |
 
-**Composition des filtres** — étapes 1–9 dans `getFilteredOrders(url)` (`src/server.js:14-61`), étapes 10–12 dans GET /orders (`src/server.js:122-136`)
+**Composition des filtres** — étapes 1–9 dans `getFilteredOrders(url)` (`src/server.js:14-61`), étapes 10–12 dans GET /orders (`src/server.js:126-141`)
 ```
 1. Si userId fourni → getOrdersByUser(userId)
 2. Sinon → listOrders()
@@ -109,9 +109,9 @@ shift-pilot-back/
    - sort=total_asc → tri croissant par total (comparaison numérique via sortOrdersByTotal), SHIAAAAAAAAAAAAAAAAAAAAAAAA-461
    - sort=total_desc → tri décroissant par total (comparaison numérique via sortOrdersByTotal), SHIAAAAAAAAAAAAAAAAAAAAAAAA-461
    — GET /orders/export.csv s'arrête ici (retourne getFilteredOrders(url) complet, sans pagination)
-10. Pagination : lire params page et limit, parser avec clampage silencieux (page défaut 1, min 1 ; limit défaut 20, min 1, max 100) (server.js:125-130, SHIAAAAAAAAAAAAAAAAAAAAAAAA-249, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235)
-11. Calculer total (nb items enrichis), totalPages (≥1), découper slice par (page-1)*limit (server.js:132-134, SHIAAAAAAAAAAAAAAAAAAAAAAAA-249, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235)
-12. Retourner objet structuré { orders: [...], pagination: { total, page, limit, totalPages } } (server.js:136, SHIAAAAAAAAAAAAAAAAAAAAAAAA-249, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235)
+10. Pagination : lire params page et limit, parser avec clampage silencieux (page défaut 1, min 1 ; limit défaut 20, min 1, max 100) (server.js:129-134, SHIAAAAAAAAAAAAAAAAAAAAAAAA-249, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235)
+11. Calculer total (nb items enrichis), totalPages (≥1), découper slice par (page-1)*limit (server.js:136-138, SHIAAAAAAAAAAAAAAAAAAAAAAAA-249, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235)
+12. Retourner objet structuré { orders: [...], pagination: { total, page, limit, totalPages } } (server.js:140, SHIAAAAAAAAAAAAAAAAAAAAAAAA-249, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235)
 ```
 
 **Points critiques**
@@ -161,8 +161,8 @@ shift-pilot-back/
 | GET | `/users/:id` | server.js:73-78 | utilisateurs | Retourne utilisateur par ID (200) ou 404 si absent (CLA-187) |
 | GET | `/orders/:id/history` | server.js:80-86 | commandes | Retourne historique des statuts d'une commande (200 + `{ orderId, history: [ { status, at }, ... ] }`) ou 404 si la commande n'existe pas (SHIAAAAAAAAAAAAAAAAAAAAAAAA-320). |
 | GET | `/orders/:id` | server.js:88-100 | commandes | Retourne détail d'une commande enrichie (clientName, clientEmail, currency). Lookup par ID ; retourne 404 si absent (SHIAAAAAAAAAAAAAAAAAAAAAAAA-349). |
-| GET | `/orders/export.csv` | server.js:104-119 | commandes | Export CSV de toutes les commandes filtrées (sans pagination). Délimiteur `;`, filename commandes-YYYY-MM-DD.csv. Mêmes filtres que GET /orders sans page/limit. (SHIAAAAAAAAAAAAAAAAAAAAAAAA-310) |
-| GET | `/orders` | server.js:126-140 | commandes | Retourne commandes filtrées et enrichies avec clientName, clientEmail, currency (userId, active, status, from, to, sort, customerName, page, limit) ; réponse structurée { orders: [...], pagination: { total, page, limit, totalPages } }. Sort support date_asc, date_desc, amount_asc, amount_desc, client_asc, client_desc, status_asc, status_desc, id_asc, id_desc, total_asc, total_desc (SHIAAAAAAAAAAAAAAAAAAAAAAAA-235, SHIAAAAAAAAAAAAAAAAAAAAAAAA-406, SHIAAAAAAAAAAAAAAAAAAAAAAAA-436, SHIAAAAAAAAAAAAAAAAAAAAAAAA-440, SHIAAAAAAAAAAAAAAAAAAAAAAAA-461). |
+| GET | `/orders/export.csv` | server.js:108-124 | commandes | Export CSV de toutes les commandes filtrées (sans pagination). Délimiteur `;`, filename commandes-YYYY-MM-DD.csv. Mêmes filtres que GET /orders sans page/limit. (SHIAAAAAAAAAAAAAAAAAAAAAAAA-310) |
+| GET | `/orders` | server.js:126-141 | commandes | Retourne commandes filtrées et enrichies avec clientName, clientEmail, currency (userId, active, status, from, to, sort, customerName, page, limit) ; réponse structurée { orders: [...], pagination: { total, page, limit, totalPages } }. Sort support date_asc, date_desc, amount_asc, amount_desc, client_asc, client_desc, status_asc, status_desc, id_asc, id_desc, total_asc, total_desc (SHIAAAAAAAAAAAAAAAAAAAAAAAA-235, SHIAAAAAAAAAAAAAAAAAAAAAAAA-406, SHIAAAAAAAAAAAAAAAAAAAAAAAA-436, SHIAAAAAAAAAAAAAAAAAAAAAAAA-440, SHIAAAAAAAAAAAAAAAAAAAAAAAA-461). |
 | (any) | (autre) | server.js:143 | — | 404 + `{error: "Not found"}` |
 
 ### Exports du système (pour test/import)
@@ -225,7 +225,7 @@ Aucune. Tous les fichiers source ont été lus intégralement.
 
 ## Preuves
 
-**Architecture générale** : src/server.js:1-150 (lu intégralement, 150 lignes après ajout GET /orders/:id, GET /orders/export.csv, tri client_asc/client_desc (SHIAAAAAAAAAAAAAAAAAAAAAAAA-406), tri status_asc/status_desc (SHIAAAAAAAAAAAAAAAAAAAAAAAA-436), tri id_asc/id_desc/total_asc/total_desc (SHIAAAAAAAAAAAAAAAAAAAAAAAA-440, SHIAAAAAAAAAAAAAAAAAAAAAAAA-461)). Corrections de numéros de lignes: require.main au 143-147, module.exports au 149, dispatcher au 72-140.
+**Architecture générale** : src/server.js:1-153 (lu intégralement, 153 lignes après ajout GET /orders/:id, GET /orders/export.csv, tri client_asc/client_desc (SHIAAAAAAAAAAAAAAAAAAAAAAAA-406), tri status_asc/status_desc (SHIAAAAAAAAAAAAAAAAAAAAAAAA-436), tri id_asc/id_desc/total_asc/total_desc (SHIAAAAAAAAAAAAAAAAAAAAAAAA-440, SHIAAAAAAAAAAAAAAAAAAAAAAAA-461)). Corrections de numéros de lignes: require.main au 147-151, module.exports au 153, dispatcher au 72-144.
 
 **Domaine utilisateurs** : src/routes/users.js:1-21 (lu intégralement, 21 lignes)
 
