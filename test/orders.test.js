@@ -600,3 +600,46 @@ test("GET /orders/export.csv?sort=status_asc retourne les lignes CSV dans l'ordr
   const ids = lines.slice(1).map((l) => Number(l.split(";")[0]));
   assert.deepEqual(ids, [102, 104, 101, 103], "le CSV tri\u00E9 par status_asc doit avoir cancelled (102, 104) avant paid (101, 103)");
 });
+
+// SHIAAAAAAAAAAAAAAAAAAAAAAAA-471 \u2014 restaurer tri par total (total_asc / total_desc)
+// Donn\u00E9es : 101\u219242, 102\u219218, 103\u219296, 104\u219230 ; total_asc : 102(18) < 104(30) < 101(42) < 103(96)
+
+test("GET /orders?sort=total_asc retourne les commandes en ordre croissant de total", async () => {
+  const result = await get("/orders?sort=total_asc");
+  const ids = result.orders.map((o) => o.id);
+  assert.deepEqual(ids, [102, 104, 101, 103], "total_asc doit retourner du plus petit au plus grand montant");
+});
+
+test("GET /orders?sort=total_desc retourne les commandes en ordre d\u00E9croissant de total", async () => {
+  const result = await get("/orders?sort=total_desc");
+  const ids = result.orders.map((o) => o.id);
+  assert.deepEqual(ids, [103, 101, 104, 102], "total_desc doit retourner du plus grand au plus petit montant");
+});
+
+test("GET /orders/export.csv?sort=total_asc retourne les lignes CSV dans l'ordre total croissant", async () => {
+  const { body } = await getCsvResponse("/orders/export.csv?sort=total_asc");
+  const lines = body.replace(/^\uFEFF/, "").split("\r\n").filter((l) => l.length > 0);
+  const ids = lines.slice(1).map((l) => Number(l.split(";")[0]));
+  assert.deepEqual(ids, [102, 104, 101, 103], "le CSV tri\u00E9 par total_asc doit avoir les montants dans l'ordre croissant");
+});
+
+test("GET /orders/export.csv?sort=total_desc retourne les lignes CSV dans l'ordre total d\u00E9croissant", async () => {
+  const { body } = await getCsvResponse("/orders/export.csv?sort=total_desc");
+  const lines = body.replace(/^\uFEFF/, "").split("\r\n").filter((l) => l.length > 0);
+  const ids = lines.slice(1).map((l) => Number(l.split(";")[0]));
+  assert.deepEqual(ids, [103, 101, 104, 102], "le CSV tri\u00E9 par total_desc doit avoir les montants dans l'ordre d\u00E9croissant");
+});
+
+test("sortOrdersByTotal('asc') trie par total croissant (tri num\u00E9rique)", () => {
+  const { sortOrdersByTotal } = require("../src/routes/orders");
+  const items = [{ id: 1, total: 96 }, { id: 2, total: 18 }, { id: 3, total: 42 }];
+  const result = sortOrdersByTotal(items, "asc");
+  assert.deepEqual(result.map((o) => o.total), [18, 42, 96], "asc num\u00E9rique : 18 < 42 < 96");
+});
+
+test("sortOrdersByTotal('desc') trie par total d\u00E9croissant (tri num\u00E9rique)", () => {
+  const { sortOrdersByTotal } = require("../src/routes/orders");
+  const items = [{ id: 1, total: 18 }, { id: 2, total: 96 }, { id: 3, total: 42 }];
+  const result = sortOrdersByTotal(items, "desc");
+  assert.deepEqual(result.map((o) => o.total), [96, 42, 18], "desc num\u00E9rique : 96 > 42 > 18");
+});
