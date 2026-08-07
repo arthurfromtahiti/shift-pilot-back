@@ -132,7 +132,7 @@ shift-pilot-back/
 | Élément | Type | Ligne(s) | Détail |
 |---------|------|----------|--------|
 | `sendJson(res, status, body)` | Function | 8-11 | Écrit en-têtes + sérialise JSON. Code réutilisable. |
-| `getFilteredOrders(url)` | Function | 14-55 | Pipeline filtres étapes 1–9 partagée par GET /orders et GET /orders/export.csv. Lit les query params, applique les filtres, enrichit avec clientName/clientEmail/currency. |
+| `getFilteredOrders(url)` | Function | 14-61 | Pipeline filtres étapes 1–9 partagée par GET /orders et GET /orders/export.csv. Lit les query params, applique les filtres, enrichit avec clientName/clientEmail/currency. |
 | `csvEscape(value)` | Function | 58-64 | Échappement RFC 4180 avec `;` comme délimiteur. Quote les valeurs contenant `;`, `"`, CR ou LF, et double les guillemets internes. |
 | Dispatcher | if-else block | 66-138 | Parse `req.url`, teste méthode+chemin, délègue ou retourne 404. |
 | `new URL(req.url, ...)` | URL parsing | 67 | Parse relative à `http://${req.headers.host}` — préserve chemin + query string. |
@@ -181,7 +181,7 @@ shift-pilot-back/
 | `sortOrdersByTotal(orderList, direction)` | orders.js:52-56 | Utilisé par GET /orders?sort=total_asc et sort=total_desc. Trie numériquement par montant total. Importé : server.js:6. Appelé par server.js:57-58 (SHIAAAAAAAAAAAAAAAAAAAAAAAA-461). |
 | `DEFAULT_CURRENCY` | orders.js:5 | Devise par défaut `"XPF"`. Importé : server.js:6. Utilisé pour enrichir chaque commande avec le champ `currency` (server.js:45, SHIAAAAAAAAAAAAAAAAAAAAAAAA-235). |
 | `getOrderById(id)` | orders.js:30-32 | Importé : server.js:6. Appelé par GET /orders/:id (server.js:97) et GET /orders/:id/history (server.js:89) pour obtenir la commande (SHIAAAAAAAAAAAAAAAAAAAAAAAA-349, SHIAAAAAAAAAAAAAAAAAAAAAAAA-320). |
-| `server` (http.Server) | server.js:149 | Exporté pour import en test. |
+| `server` (http.Server) | server.js:153 | Exporté pour import en test. |
 
 ## Fichiers critiques (hotspots d'évolution)
 
