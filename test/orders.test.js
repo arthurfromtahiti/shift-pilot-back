@@ -518,6 +518,34 @@ test("GET /orders/export.csv?from=2024-02-01&to=2024-03-31 retourne uniquement i
   assert.deepEqual(ids, [102, 103], "la plage fév–mars doit inclure uniquement id102 et id103");
 });
 
+// SHIAAAAAAAAAAAAAAAAAAAAAAAA-486 — GET /orders/export.csv expose X-Total-Count
+
+test("GET /orders/export.csv retourne un header X-Total-Count égal au nombre de lignes de données CSV", async () => {
+  const { headers, body } = await getCsvResponse("/orders/export.csv");
+  const lines = body.replace(/^\uFEFF/, "").split("\r\n").filter((l) => l.length > 0);
+  const dataRowCount = lines.length - 1; // hors ligne d'en-tête CSV
+  assert.ok(
+    "x-total-count" in headers,
+    "le header X-Total-Count doit être présent dans la réponse",
+  );
+  assert.equal(
+    headers["x-total-count"],
+    String(dataRowCount),
+    `X-Total-Count doit valoir ${dataRowCount} (entier en string)`,
+  );
+});
+
+test("GET /orders/export.csv?status=paid : X-Total-Count correspond au nombre de commandes filtrées", async () => {
+  const { headers, body } = await getCsvResponse("/orders/export.csv?status=paid");
+  const lines = body.replace(/^\uFEFF/, "").split("\r\n").filter((l) => l.length > 0);
+  const dataRowCount = lines.length - 1;
+  assert.equal(
+    headers["x-total-count"],
+    String(dataRowCount),
+    `X-Total-Count doit refléter le nombre de commandes paid (${dataRowCount})`,
+  );
+});
+
 // SHIAAAAAAAAAAAAAAAAAAAAAAAA-342 — GET /orders/:id/history
 
 test("GET /orders/101/history → 200 avec statusHistory de la commande", async () => {
