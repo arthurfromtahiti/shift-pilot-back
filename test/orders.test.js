@@ -629,3 +629,23 @@ test("GET /orders/export.csv?sort=id_desc retourne les lignes CSV dans l'ordre i
   const ids = lines.slice(1).map((l) => Number(l.split(";")[0]));
   assert.deepEqual(ids, [104, 103, 102, 101], "le CSV tri\u00E9 par id_desc doit avoir les ids dans l'ordre d\u00E9croissant");
 });
+
+// SHIAAAAAAAAAAAAAAAAAAAAAAAA-443 \u2014 preuve que sortOrdersById est num\u00E9rique, pas lexicographique
+// Avec les IDs 101\u2013104 du jeu de donn\u00E9es, num\u00E9rique et lexicographique co\u00EFncident.
+// Ces tests unitaires utilisent les IDs 9 et 10 pour les distinguer :
+//   lexicographique : "10" < "9" \u2192 ordre asc = [10, 9]
+//   num\u00E9rique       :  10 >  9  \u2192 ordre asc = [9, 10]
+
+test("sortOrdersById('asc') place 9 avant 10 (comparaison num\u00E9rique, non lexicographique)", () => {
+  const { sortOrdersById } = require("../src/routes/orders");
+  const items = [{ id: 10 }, { id: 9 }];
+  const result = sortOrdersById(items, "asc");
+  assert.deepEqual(result.map((o) => o.id), [9, 10], "asc num\u00E9rique : 9 avant 10");
+});
+
+test("sortOrdersById('desc') place 10 avant 9 (comparaison num\u00E9rique, non lexicographique)", () => {
+  const { sortOrdersById } = require("../src/routes/orders");
+  const items = [{ id: 9 }, { id: 10 }];
+  const result = sortOrdersById(items, "desc");
+  assert.deepEqual(result.map((o) => o.id), [10, 9], "desc num\u00E9rique : 10 avant 9");
+});

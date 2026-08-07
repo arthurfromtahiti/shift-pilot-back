@@ -42,4 +42,11 @@ function filterByCustomerName(orderList, customerName) {
   );
 }
 
-module.exports = { listOrders, getOrdersByUser, filterActiveOrders, getOrderById, filterByStatus, filterByCustomerName, DEFAULT_CURRENCY };
+// Comparaison numérique (a.id - b.id) et non lexicographique : "9" > "10" en string mais 9 < 10
+function sortOrdersById(orderList, direction) {
+  if (direction === "asc") return [...orderList].sort((a, b) => a.id - b.id);
+  if (direction === "desc") return [...orderList].sort((a, b) => b.id - a.id);
+  return orderList;
+}
+
+module.exports = { listOrders, getOrdersByUser, filterActiveOrders, getOrderById, filterByStatus, filterByCustomerName, sortOrdersById, DEFAULT_CURRENCY };
