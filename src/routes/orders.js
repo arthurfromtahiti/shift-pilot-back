@@ -42,4 +42,10 @@ function filterByCustomerName(orderList, customerName) {
   );
 }
 
-module.exports = { listOrders, getOrdersByUser, filterActiveOrders, getOrderById, filterByStatus, filterByCustomerName, DEFAULT_CURRENCY };
+function sortOrdersByTotal(orderList, direction) {
+  if (direction === "asc") return [...orderList].sort((a, b) => a.total - b.total);
+  if (direction === "desc") return [...orderList].sort((a, b) => b.total - a.total);
+  return orderList;
+}
+
+module.exports = { listOrders, getOrdersByUser, filterActiveOrders, getOrderById, filterByStatus, filterByCustomerName, sortOrdersByTotal, DEFAULT_CURRENCY };
