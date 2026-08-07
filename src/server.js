@@ -29,10 +29,22 @@ function getFilteredOrders(url) {
   if (activeOnly && normalizedStatus === null) result = filterActiveOrders(result);
   if (normalizedStatus !== null) result = filterByStatus(result, normalizedStatus);
 
-  // date range filter — YYYY-MM-DD compared against createdAt ISO string; invalid format silently ignored
-  const isValidDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s);
-  if (fromParam && isValidDate(fromParam)) result = result.filter((o) => o.createdAt >= fromParam + "T00:00:00Z");
-  if (toParam && isValidDate(toParam)) result = result.filter((o) => o.createdAt <= toParam + "T23:59:59Z");
+  // date range filter — YYYY-MM-DD compared against createdAt ISO string
+  // format-invalid values are silently ignored; format-valid but calendar-invalid values (e.g. month 13) throw 400
+  const isValidDateFormat = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s);
+  const isCalendarValid = (s) => {
+    const [y, m, d] = s.split("-").map(Number);
+    const dt = new Date(y, m - 1, d);
+    return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
+  };
+  if (fromParam && isValidDateFormat(fromParam)) {
+    if (!isCalendarValid(fromParam)) { const e = new Error("invalid_date"); e.status = 400; throw e; }
+    result = result.filter((o) => o.createdAt >= fromParam + "T00:00:00Z");
+  }
+  if (toParam && isValidDateFormat(toParam)) {
+    if (!isCalendarValid(toParam)) { const e = new Error("invalid_date"); e.status = 400; throw e; }
+    result = result.filter((o) => o.createdAt <= toParam + "T23:59:59Z");
+  }
 
   // date/amount sort — unknown sort values are silently ignored, no mutation of source array
   if (sortParam === "date_asc") result = [...result].sort((a, b) => a.createdAt < b.createdAt ? -1 : 1);
@@ -104,7 +116,11 @@ const server = http.createServer((req, res) => {
   }
 
   if (url.pathname === "/orders/export.csv" && req.method === "GET") {
-    const enriched = getFilteredOrders(url);
+    let enriched;
+    try { enriched = getFilteredOrders(url); } catch (e) {
+      if (e.status === 400) return sendJson(res, 400, { error: "Invalid date" });
+      throw e;
+    }
     const today = new Date().toISOString().slice(0, 10);
     const header = "id;date;clientName;clientEmail;montant;devise;statut";
     const rows = enriched.map((o) =>
@@ -122,7 +138,11 @@ const server = http.createServer((req, res) => {
   }
 
   if (url.pathname === "/orders" && req.method === "GET") {
-    const enriched = getFilteredOrders(url);
+    let enriched;
+    try { enriched = getFilteredOrders(url); } catch (e) {
+      if (e.status === 400) return sendJson(res, 400, { error: "Invalid date" });
+      throw e;
+    }
 
     const pageParam = url.searchParams.get("page");
     const limitParam = url.searchParams.get("limit");
