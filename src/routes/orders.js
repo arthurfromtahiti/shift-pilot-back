@@ -55,4 +55,14 @@ function sortOrdersByTotal(orderList, direction) {
   return orderList;
 }
 
-module.exports = { listOrders, getOrdersByUser, filterActiveOrders, getOrderById, filterByStatus, filterByCustomerName, sortOrdersById, sortOrdersByTotal, DEFAULT_CURRENCY };
+function cancelOrder(id) {
+  const order = orders.find(o => o.id === id);
+  if (!order) return { status: 404, body: { error: "Not found" } };
+  if (order.status === "cancelled") return { status: 409, body: { error: "Order already cancelled" } };
+  if (order.status !== "paid") return { status: 422, body: { error: "Order cannot be cancelled" } };
+  order.status = "cancelled";
+  order.statusHistory = [...order.statusHistory, { status: "cancelled", at: new Date().toISOString() }];
+  return { status: 200, body: order };
+}
+
+module.exports = { listOrders, getOrdersByUser, filterActiveOrders, getOrderById, filterByStatus, filterByCustomerName, sortOrdersById, sortOrdersByTotal, cancelOrder, DEFAULT_CURRENCY };
