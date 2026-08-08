@@ -118,6 +118,7 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, {
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": `attachment; filename="commandes-${today}.csv"`,
+      "X-Total-Count": String(enriched.length),
     });
     res.end(csv);
     return;
