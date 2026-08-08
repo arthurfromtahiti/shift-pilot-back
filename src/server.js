@@ -3,7 +3,7 @@ const { URL } = require("node:url");
 
 const { listUsers, getUserById } = require("./routes/users");
 
-const { listOrders, getOrdersByUser, filterActiveOrders, getOrderById, filterByStatus, filterByCustomerName, sortOrdersById, sortOrdersByTotal, DEFAULT_CURRENCY } = require("./routes/orders");
+const { listOrders, getOrdersByUser, filterActiveOrders, getOrderById, filterByStatus, filterByCustomerName, sortOrdersById, sortOrdersByTotal, cancelOrder, DEFAULT_CURRENCY } = require("./routes/orders");
 
 function sendJson(res, status, body) {
   res.writeHead(status, { "Content-Type": "application/json" });
@@ -163,6 +163,21 @@ const server = http.createServer((req, res) => {
 
   if (url.pathname === "/health" && req.method === "GET") {
     return sendJson(res, 200, { status: "ok" });
+  }
+
+  const orderCancelMatch = req.method === "PATCH" && /^\/orders\/(\d+)\/cancel$/.exec(url.pathname);
+  if (orderCancelMatch) {
+    const id = parseInt(orderCancelMatch[1], 10);
+    const result = cancelOrder(id);
+    if (result.status !== 200) return sendJson(res, result.status, result.body);
+    const order = result.body;
+    const user = getUserById(order.userId);
+    return sendJson(res, 200, {
+      ...order,
+      clientName: user ? user.name : null,
+      clientEmail: user ? user.email : null,
+      currency: order.currency ?? DEFAULT_CURRENCY,
+    });
   }
 
   sendJson(res, 404, { error: "Not found" });
