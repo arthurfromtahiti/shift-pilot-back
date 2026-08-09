@@ -239,7 +239,7 @@ test("GET /orders?sort=invalide retourne toutes les commandes sans erreur", asyn
   assert.equal(result.orders.length, 4, "un sort invalide ne doit pas provoquer d'erreur ni filtrer de commandes");
 });
 
-// CLA-226 — from/to invalides ignorés silencieusement
+// CLA-226 — from/to invalides ignorés silencieusement (format invalide)
 test("GET /orders?from=foo retourne toutes les commandes sans erreur", async () => {
   const result = await get("/orders?from=foo");
   assert.equal(result.orders.length, 4, "un from invalide doit être ignoré silencieusement");
@@ -248,6 +248,31 @@ test("GET /orders?from=foo retourne toutes les commandes sans erreur", async () 
 test("GET /orders?to=not-a-date retourne toutes les commandes sans erreur", async () => {
   const result = await get("/orders?to=not-a-date");
   assert.equal(result.orders.length, 4, "un to invalide doit être ignoré silencieusement");
+});
+
+// SHIAAAAAAAAAAAAAAAAAAAAAAAA-469 — from/to au format YYYY-MM-DD mais date calendaire invalide → 400
+test("GET /orders?from=2024-13-01 (mois 13) retourne 400", async () => {
+  const { statusCode, body } = await getCsvResponse("/orders?from=2024-13-01");
+  assert.equal(statusCode, 400, "un mois 13 doit provoquer une erreur 400");
+  assert.equal(JSON.parse(body).error, "Invalid date", "la réponse doit contenir { error: 'Invalid date' }");
+});
+
+test("GET /orders?to=2024-00-01 (mois 0) retourne 400", async () => {
+  const { statusCode, body } = await getCsvResponse("/orders?to=2024-00-01");
+  assert.equal(statusCode, 400, "un mois 0 doit provoquer une erreur 400");
+  assert.equal(JSON.parse(body).error, "Invalid date");
+});
+
+test("GET /orders?from=2024-02-30 (30 fév, inexistant) retourne 400", async () => {
+  const { statusCode, body } = await getCsvResponse("/orders?from=2024-02-30");
+  assert.equal(statusCode, 400, "le 30 février n'existe pas : doit provoquer une erreur 400");
+  assert.equal(JSON.parse(body).error, "Invalid date");
+});
+
+test("GET /orders/export.csv?from=2024-13-01 (mois 13) retourne 400", async () => {
+  const { statusCode, body } = await getCsvResponse("/orders/export.csv?from=2024-13-01");
+  assert.equal(statusCode, 400, "mois 13 dans l'export CSV doit provoquer une erreur 400");
+  assert.equal(JSON.parse(body).error, "Invalid date");
 });
 
 // SHIAAAAAAAAAAAAAAAAAAAAAAAA-395 — userId vide ne doit pas ignorer le filtre
