@@ -141,6 +141,10 @@ const server = http.createServer((req, res) => {
     return sendJson(res, 200, { orders, pagination: { total, page, limit, totalPages } });
   }
 
+  if (url.pathname === "/health" && req.method === "GET") {
+    return sendJson(res, 200, { status: "ok" });
+  }
+
   sendJson(res, 404, { error: "Not found" });
 });
 
