@@ -397,6 +397,7 @@ test("GET /orders retourne un objet paginé avec les champs orders et pagination
 test("GET /orders sans page/limit retourne page=1, limit=50, total=4, totalPages=1", async () => {
   const result = await get("/orders");
   assert.deepEqual(result.pagination, { total: 4, page: 1, limit: 50, totalPages: 1 });
+});
 
 test("GET /orders?page=2&limit=2 retourne les éléments 3 et 4 avec la bonne pagination", async () => {
   // Sans tri, ordre naturel : 101, 102, 103, 104 — page 2, limit 2 → [103, 104]
@@ -440,6 +441,7 @@ test("GET /orders?limit=0 retourne 400", async () => {
   const { statusCode, body } = await getCsvResponse("/orders?limit=0");
   assert.equal(statusCode, 400, "limit=0 doit retourner 400");
   assert.deepEqual(JSON.parse(body), { error: "limit must be a positive integer" });
+});
 
 test("GET /orders?limit=200 retourne limit=200 (non clampé)", async () => {
   const result = await get("/orders?limit=200");
@@ -458,6 +460,7 @@ test("GET /orders?sort=amount_asc&page=1&limit=2 : tri + pagination combinés", 
   const result = await get("/orders?sort=amount_asc&page=1&limit=2");
   assert.deepEqual(result.orders.map((o) => o.id), [102, 104]);
   assert.deepEqual(result.pagination, { total: 4, page: 1, limit: 2, totalPages: 2 });
+});
 
 test("totalPages vaut au moins 1 même quand total=0", async () => {
   const result = await get("/orders?status=unknown");
@@ -573,11 +576,13 @@ test("GET /orders/export.csv?status=paid : X-Total-Count correspond au nombre de
 test("GET /orders/101/history → 200 avec statusHistory de la commande", async () => {
   const result = await get("/orders/101/history");
   assert.deepEqual(result, { orderId: 101, history: [{ status: "paid", at: "2024-01-10T08:00:00Z" }] });
+});
 
 test("GET /orders/9999/history → 404 avec { error: 'Not found' }", async () => {
   const { statusCode, body } = await getCsvResponse("/orders/9999/history");
   assert.equal(statusCode, 404);
   assert.deepEqual(JSON.parse(body), { error: "Not found" });
+});
 
 test("GET /orders/export.csv chaque ligne contient les bons champs pour chaque commande", async () => {
   const { body } = await getCsvResponse("/orders/export.csv");
@@ -743,11 +748,13 @@ test("GET /orders?limit=abc retourne 400", async () => {
   const { statusCode, body } = await getCsvResponse("/orders?limit=abc");
   assert.equal(statusCode, 400, "limit non num\u00E9rique doit retourner 400");
   assert.deepEqual(JSON.parse(body), { error: "limit must be a positive integer" });
+});
 
 test("GET /orders?limit=-1 retourne 400", async () => {
   const { statusCode, body } = await getCsvResponse("/orders?limit=-1");
   assert.equal(statusCode, 400, "limit n\u00E9gatif doit retourner 400");
   assert.deepEqual(JSON.parse(body), { error: "limit must be a positive integer" });
+});
 
 test("GET /orders?limit=300 clampe \u00E0 limit=200", async () => {
   const result = await get("/orders?limit=300");
@@ -764,16 +771,19 @@ test("GET /orders/export.csv?limit=0 retourne 400", async () => {
   const { statusCode, body } = await getCsvResponse("/orders/export.csv?limit=0");
   assert.equal(statusCode, 400, "limit=0 doit retourner 400");
   assert.deepEqual(JSON.parse(body), { error: "limit must be a positive integer" });
+});
 
 test("GET /orders/export.csv?limit=abc retourne 400", async () => {
   const { statusCode, body } = await getCsvResponse("/orders/export.csv?limit=abc");
   assert.equal(statusCode, 400, "limit non num\u00E9rique doit retourner 400");
   assert.deepEqual(JSON.parse(body), { error: "limit must be a positive integer" });
+});
 
 test("GET /orders/export.csv?limit=-5 retourne 400", async () => {
   const { statusCode, body } = await getCsvResponse("/orders/export.csv?limit=-5");
   assert.equal(statusCode, 400, "limit n\u00E9gatif doit retourner 400");
   assert.deepEqual(JSON.parse(body), { error: "limit must be a positive integer" });
+});
 
 test("GET /orders/export.csv?limit=300 clampe \u00E0 200 (retourne les 4 commandes disponibles)", async () => {
   const { body } = await getCsvResponse("/orders/export.csv?limit=300");
