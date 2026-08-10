@@ -790,3 +790,40 @@ test("GET /orders/export.csv?limit=300 clampe \u00E0 200 (retourne les 4 command
   const lines = body.replace(/^\uFEFF/, "").split("\r\n").filter((l) => l.length > 0);
   assert.equal(lines.length - 1, 4, "limit=300 clamp\u00E9 \u00E0 200 retourne toutes les commandes (4 en base)");
 });
+
+// SHIAAAAAAAAAAAAAAAAAAAAAAAA-441 correction \u2014 validation stricte : "1abc" et "1.5" ne sont pas des entiers
+
+test("GET /orders?limit=1abc retourne 400 (entier partiel refus\u00E9)", async () => {
+  const { statusCode, body } = await getCsvResponse("/orders?limit=1abc");
+  assert.equal(statusCode, 400, "limit=1abc doit retourner 400 \u2014 parseInt ignore le suffixe mais ce n'est pas un entier");
+  assert.deepEqual(JSON.parse(body), { error: "limit must be a positive integer" });
+});
+
+test("GET /orders?limit=1.5 retourne 400 (d\u00E9cimal refus\u00E9)", async () => {
+  const { statusCode, body } = await getCsvResponse("/orders?limit=1.5");
+  assert.equal(statusCode, 400, "limit=1.5 doit retourner 400 \u2014 un d\u00E9cimal n'est pas un entier valide");
+  assert.deepEqual(JSON.parse(body), { error: "limit must be a positive integer" });
+});
+
+test("GET /orders/export.csv?limit=1abc retourne 400 (entier partiel refus\u00E9)", async () => {
+  const { statusCode, body } = await getCsvResponse("/orders/export.csv?limit=1abc");
+  assert.equal(statusCode, 400, "limit=1abc doit retourner 400 sur l'export CSV");
+  assert.deepEqual(JSON.parse(body), { error: "limit must be a positive integer" });
+});
+
+test("GET /orders/export.csv?limit=1.5 retourne 400 (d\u00E9cimal refus\u00E9)", async () => {
+  const { statusCode, body } = await getCsvResponse("/orders/export.csv?limit=1.5");
+  assert.equal(statusCode, 400, "limit=1.5 doit retourner 400 sur l'export CSV");
+  assert.deepEqual(JSON.parse(body), { error: "limit must be a positive integer" });
+});
+
+// SHIAAAAAAAAAAAAAAAAAAAAAAAA-441 correction \u2014 X-Total-Count doit refl\u00E9ter le total avant limit, pas apr\u00E8s
+
+test("GET /orders/export.csv?limit=2 : X-Total-Count vaut 4 (total avant limit), pas 2", async () => {
+  const { headers } = await getCsvResponse("/orders/export.csv?limit=2");
+  assert.equal(
+    headers["x-total-count"],
+    "4",
+    "X-Total-Count doit exposer le total des commandes filtr\u00E9es, ind\u00E9pendamment du limit appliqu\u00E9",
+  );
+});
