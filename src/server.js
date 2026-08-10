@@ -119,8 +119,11 @@ const server = http.createServer((req, res) => {
 
   if (url.pathname === "/orders/export.csv" && req.method === "GET") {
     const limitParam = url.searchParams.get("limit");
+    if (limitParam !== null && !/^\d+$/.test(limitParam)) {
+      return sendJson(res, 400, { error: "limit must be a positive integer" });
+    }
     const limitRaw = limitParam !== null ? parseInt(limitParam, 10) : null;
-    if (limitParam !== null && (isNaN(limitRaw) || limitRaw <= 0)) {
+    if (limitParam !== null && limitRaw <= 0) {
       return sendJson(res, 400, { error: "limit must be a positive integer" });
     }
     const limit = limitRaw !== null ? Math.min(limitRaw, 200) : 50;
@@ -129,6 +132,7 @@ const server = http.createServer((req, res) => {
       if (e.status === 400) return sendJson(res, 400, { error: "Invalid date" });
       throw e;
     }
+    const total = enriched.length;
     enriched = enriched.slice(0, limit);
     const today = new Date().toISOString().slice(0, 10);
     const header = "id;date;clientName;clientEmail;montant;devise;statut";
@@ -141,7 +145,7 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, {
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": `attachment; filename="commandes-${today}.csv"`,
-      "X-Total-Count": String(enriched.length),
+      "X-Total-Count": String(total),
     });
     res.end(csv);
     return;
@@ -157,8 +161,11 @@ const server = http.createServer((req, res) => {
     const pageParam = url.searchParams.get("page");
     const limitParam = url.searchParams.get("limit");
     const parsePage = (v) => { const n = parseInt(v, 10); return (isNaN(n) || n < 1) ? 1 : n; };
+    if (limitParam !== null && !/^\d+$/.test(limitParam)) {
+      return sendJson(res, 400, { error: "limit must be a positive integer" });
+    }
     const limitRaw = limitParam !== null ? parseInt(limitParam, 10) : null;
-    if (limitParam !== null && (isNaN(limitRaw) || limitRaw <= 0)) {
+    if (limitParam !== null && limitRaw <= 0) {
       return sendJson(res, 400, { error: "limit must be a positive integer" });
     }
     const page = pageParam !== null ? parsePage(pageParam) : 1;
